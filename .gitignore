@@ -158,3 +158,144 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+#python/djnago
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+dist/
+build/
+eggs/
+*.egg-info/
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.ENV/
+
+# IDEs and editors
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Local development settings
+*.sqlite3
+*.db
+*.db.sqlite3
+*.pyc
+*.bak
+*.swp
+*.log
+*.cache
+*.egg-info
+*.egg
+*.egg-info/
+*.egg/
+*.pyc
+*.pyo
+*.pyd
+*.pyc/
+*.pyo/
+*.pyd/
+*.bak/
+*.swp/
+*.log/
+*.cache/
+*.coverage
+.coverage
+htmlcov/
+.coverage.*
+.coverage*/
+.coverage.*/*
+*.pyc
+*.pyo
+*.pyd
+*.pyc/
+*.pyo/
+*.pyd/
+*.bak/
+*.swp/
+*.log/
+*.cache/
+*.coverage
+.coverage
+htmlcov/
+.coverage.*
+.coverage*/
+.coverage.*/*
+
+
+# Dependencies
+node_modules/
+
+# Compiled output
+dist/
+build/
+out/
+*.js
+*.js.map
+
+# IDEs and editors
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Logs and databases
+*.log
+*.sqlite
+*.sqlite3
+*.db
+*.db.sqlite3
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Other
+.DS_Store
+Thumbs.db
+
+# Dependencies
+node_modules/
+
+# Built files
+dist/
+build/
+out/
+public/
+*.js
+*.js.map
+
+# Logs and databases
+*.log
+*.sqlite
+*.sqlite3
+*.db
+*.db.sqlite3
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Other
+.DS_Store
+Thumbs.db

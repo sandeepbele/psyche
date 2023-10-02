@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Creep Custom</title>
+    <!--link rel="stylesheet" href="css/creep_custom.css"-->
+    <script src="./public/driver.js"></script>
+    </head> 
+<body>
+    <script>
+        document.addEventListener('DOMContentLoaded', async function() {
+            const fingerprintDataDiv = document.getElementById('fp-data');
+
+            try {
+                const data = await getFingerprintData('http://localhost:2000/dashboard/fp_validate');
+                fingerprintDataDiv.textContent = JSON.stringify(data);
+            } catch (err) {
+                console.log(err);
+            }
+        });
+    </script>
+    absdkjsahdskajhdksajh
+    <p>jhkasjkhdsajkhdsajkhdjks</p>
+    <div id="custom">--</div>
+    <div id="fp-data">Failed</div>
+</body>
+</html>

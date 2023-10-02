@@ -1,0 +1,72 @@
+import random
+from datetime import timedelta, datetime
+from django.utils import timezone
+from django.core.management.base import BaseCommand
+from browserintel.models import FingerprintData
+
+class Command(BaseCommand):
+    help = 'Generate test data for the FingerprintData model'
+
+    def handle(self, *args, **options):
+        # Define the list of stable fingerprints and user identifiers
+        stable_fps = ['fp1', 'fp2', 'fp3']
+        user_identifiers = ['user1@example.com', 'user2@example.com', 'user3@example.com']
+
+        # Define the list of other fields to populate
+        ip_addresses = ['192.168.0.1', '192.168.0.2', '192.168.0.3']
+        devices = ['Windows', 'Mac', 'Linux']
+        browsers = ['Chrome', 'Firefox', 'Safari']
+        browser_private_modes = [True, False]
+        headless_ratings = [0, 1, 2]
+        stealth_ratings = [0, 1, 2]
+        timezones = ['UTC', 'America/New_York', 'Europe/London']
+        lies = [0, 1, 2]
+        resistances = [{'resistance1': 1}, {'resistance2': 2}, {'resistance3': 3}]
+        is_bots = [True, False]
+        bot_types = ['bot1', 'bot2', 'bot3']
+
+        # Define the start and end dates for the test data
+        start_date = timezone.now() - timedelta(days=7)
+        end_date = timezone.now()
+
+        # Generate the test data
+        for stable_fp in stable_fps:
+            for user_identifier in user_identifiers:
+                for i in range(10):
+                    # Generate random values for the other fields
+                    ip_address = random.choice(ip_addresses)
+                    device = random.choice(devices)
+                    browser = random.choice(browsers)
+                    browser_private_mode = random.choice(browser_private_modes)
+                    headless_rating = random.choice(headless_ratings)
+                    stealth_rating = random.choice(stealth_ratings)
+                    timezone = random.choice(timezones)
+                    lies = random.choice(lies)
+                    resistance = random.choice(resistances)
+                    is_bot = random.choice(is_bots)
+                    bot_type = random.choice(bot_types)
+
+                    # Generate a random access time between the start and end dates
+                    access_time = start_date + timedelta(seconds=random.randint(0, int((end_date - start_date).total_seconds())))
+
+                    # Create a new instance of the FingerprintData model and save it to the database
+                    fp_data = FingerprintData(
+                        fingerprint={},
+                        user_identifier=user_identifier,
+                        stable_fp=stable_fp,
+                        ip_address=ip_address,
+                        device=device,
+                        browser=browser,
+                        browser_private_mode=browser_private_mode,
+                        headless_rating=headless_rating,
+                        stealth_rating=stealth_rating,
+                        timezone=timezone,
+                        lies=lies,
+                        resistance=resistance,
+                        is_bot=is_bot,
+                        bot_type=bot_type,
+                        access_time=access_time
+                    )
+                    fp_data.save()
+
+        self.stdout.write(self.style.SUCCESS('Successfully generated test data for the FingerprintData model.'))

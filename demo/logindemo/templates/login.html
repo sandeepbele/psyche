@@ -1,0 +1,58 @@
+
+{% extends 'base.html' %}
+{% block script %}
+{% load static %}
+<script src="{% static 'driver.js' %}"></script>
+    <script>
+        let fingerprintData;
+
+        // Call the getFingerprintData function from driver.js
+        async function myFunction() {
+            try {
+                const data = await driver.getFingerprintData('{{ FP_API_URL }}/decode/');
+                console.log(data);
+                fingerprintData = data.result.id;
+            } catch (err) {
+                console.log(err);
+            }
+        }
+
+        // Call myFunction() when the page is loaded
+        window.onload = async () => {
+            try {
+                await myFunction();
+            } catch (err) {
+                console.log(err);
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.querySelector('form');
+            form.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                if (fingerprintData) {
+                    try {
+                        const input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = 'id';
+                        input.value = fingerprintData;
+                        form.appendChild(input);
+                        form.submit();
+                    } catch (err) {
+                        console.log(err);
+                    }
+                } else {
+                    console.log('Waiting for fingerprint data to become available');
+                }
+            });
+        });
+    </script>
+{% endblock %}
+{% block content %}
+<h2>Login</h2>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Login</button>
+</form>
+{% endblock %}

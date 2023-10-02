@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Sign In</title>
+  <link rel="stylesheet" type="text/css" href="styles.css">
+  <style>
+    body { background: #ffffff; }
+.container { width: 400px; margin: auto; padding: 20px; background: #ffffff; border: 2px solid #ff9900; border-radius: 8px; }
+.logo { width: 100px; margin-bottom: 20px; }
+h1 { font-family: Arial; font-size: 24px; margin-bottom: 20px; color: #000000; }
+input { font-family: Arial; width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; }
+button { font-family: Arial; width: 100%; padding: 12px; background: #ff9900; color: #ffffff; border: none; border-radius: 4px; }
+.legal { font-family: Arial; font-size: 12px; margin-bottom: 10px; color: #000000; }
+.help-links { font-family: Arial; font-size: 14px; color: #000000; }
+footer { font-family: Arial; font-size: 12px; color: #aaa; }
+
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img src="https://asset.brandfetch.io/idawOgYOsG/idisSB3V3T.svg" alt="Logo" class="logo">
+    <h1>Sign In to Your Account</h1>
+    <input type="text" placeholder="Enter your email or phone number">
+    <button>Let's Go</button>
+    <p class="legal">By tapping 'Let's Go', you're agreeing to our <a href="#">Terms</a> and <a href="#">Privacy Policy</a>.</p>
+    <div class="help-links">
+      <a href="#">Forgot Password?</a> | <a href="#">New Here? Create an Account</a>
+    </div>
+    <footer>
+        <p id="copyright"></p>
+      </footer>
+      <script>
+        const encoded = 'JmNvcHk7IDIwMjMsIEFtYXpvbiwgSW5jLg==';
+        const decoded = atob(encoded);
+        document.getElementById('copyright').innerText = decoded;
+      </script>
+  </div>
+</body>
+</html>

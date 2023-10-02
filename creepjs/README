@@ -1,0 +1,8 @@
+install node
+install yarn
+yarn build 
+update rollup.config.js
+
+
+puppeteer dependency is not for the core lib .. its for pup.js which a test script to test the core lib using puppeteer
+
