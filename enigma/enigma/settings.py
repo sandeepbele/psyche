@@ -121,9 +121,11 @@ STATIC_ROOT = BASE_DIR / 'static'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+DB_DIR = os.environ.get('ENIGMA_SQLITE_DB_DIR',os.path.join(BASE_DIR))
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'browserintel_db.sqlite3',
+        'NAME': os.path.join(DB_DIR,'browserintel_db.sqlite3'),
     }
 }
