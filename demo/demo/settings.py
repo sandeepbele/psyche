@@ -71,16 +71,6 @@ TEMPLATES = [
 WSGI_APPLICATION = 'demo.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/4.2/ref/settings/#databases
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'demo_db.sqlite3',
-    }
-}
-
 AUTH_USER_MODEL = 'logindemo.MyUser'
 
 # Password validation
@@ -130,3 +120,18 @@ import os
 # read from environment variable
 
 FP_API_URL = os.environ.get('FP_API_URL', 'http://localhost:8000/enigma/b')
+
+DB_DIR = os.environ.get('DEMO_SQLITE_DB_DIR',os.path.join(BASE_DIR))
+
+if not os.path.exists(DB_DIR):
+    os.makedirs(DB_DIR)
+
+# Database
+# https://docs.djangoproject.com/en/4.2/ref/settings/#databases
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': os.path.join(DB_DIR,  'demo_db.sqlite3'),
+    }
+}
