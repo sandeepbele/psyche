@@ -23,9 +23,24 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'REDACTED_DJANGO_SECRET_KEY'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DEMOAPP_DJANGO_ALLOWED_HOSTS")
 
-ALLOWED_HOSTS = []
+DJANGO_ALLOWED_HOSTS = os.getenv("DEMOAPP_DJANGO_ALLOWED_HOSTS")
+ALLOWED_HOSTS = DJANGO_ALLOWED_HOSTS.split(",")
+
+CSRF_TRUSTED_ORIGINS = os.getenv("DEMOAPP_CSRF_TRUSTED_ORIGINS", "").split(",")
+
+DEPLOY_MODE = os.getenv("DEMOAPP_DEPLOY_MODE","prod") # dev|test|prod
+
+if DEPLOY_MODE == "prod":
+    # SECURITY WARNING: don't run with debug turned on in production!
+    DEBUG = False
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True
+elif DEPLOY_MODE == "dev":
+    DEBUG = True
+    CSRF_COOKIE_SECURE = False
+    SESSION_COOKIE_SECURE = False
 
 
 # Application definition
