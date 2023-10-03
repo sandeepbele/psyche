@@ -24,14 +24,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'REDACTED_DJANGO_SECRET_KEY'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DEMOAPP_DJANGO_ALLOWED_HOSTS")
 
-DJANGO_ALLOWED_HOSTS = os.getenv("DEMOAPP_DJANGO_ALLOWED_HOSTS")
+DJANGO_ALLOWED_HOSTS = os.getenv("DEMOAPP_DJANGO_ALLOWED_HOSTS","localhost,127.0.0.1")
 ALLOWED_HOSTS = DJANGO_ALLOWED_HOSTS.split(",")
 
-CSRF_TRUSTED_ORIGINS = os.getenv("DEMOAPP_CSRF_TRUSTED_ORIGINS", "").split(",")
+CSRF_TRUSTED_ORIGINS = os.getenv("DEMOAPP_CSRF_TRUSTED_ORIGINS", "http://localhost,http://127.0.0.1").split(",")
 
-DEPLOY_MODE = os.getenv("DEMOAPP_DEPLOY_MODE","prod") # dev|test|prod
+DEPLOY_MODE = os.getenv("DEMOAPP_DEPLOY_MODE","dev") # dev|test|prod
 
 if DEPLOY_MODE == "prod":
     # SECURITY WARNING: don't run with debug turned on in production!
@@ -135,6 +134,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # read from environment variable
 
 FP_API_URL = os.environ.get('FP_API_URL', 'http://localhost:8000/enigma/b')
+FP_JS_URL = os.environ.get('FP_JS_URL', 'http://localhost:8000/static/driver.js')
 
 DB_DIR = os.environ.get('DEMO_SQLITE_DB_DIR',os.path.join(BASE_DIR))
 

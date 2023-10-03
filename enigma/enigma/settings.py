@@ -24,9 +24,22 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'REDACTED_DJANGO_SECRET_KEY'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DJANGO_ALLOWED_HOSTS = os.getenv("ENIGMA_DJANGO_ALLOWED_HOSTS","localhost,127.0.0.1")
+ALLOWED_HOSTS = DJANGO_ALLOWED_HOSTS.split(",")
 
-ALLOWED_HOSTS = []
+CSRF_TRUSTED_ORIGINS = os.getenv("ENIGMA_CSRF_TRUSTED_ORIGINS", "http://localhost,http://127.0.0.1").split(",")
+
+DEPLOY_MODE = os.getenv("ENIGMA_DEPLOY_MODE","dev") # dev|test|prod
+
+if DEPLOY_MODE == "prod":
+    # SECURITY WARNING: don't run with debug turned on in production!
+    DEBUG = False
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True
+elif DEPLOY_MODE == "dev":
+    DEBUG = True
+    CSRF_COOKIE_SECURE = False
+    SESSION_COOKIE_SECURE = False
 
 
 # Application definition

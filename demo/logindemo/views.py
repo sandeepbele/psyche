@@ -34,7 +34,7 @@ def login_view(request):
                     form.add_error(None, f"Sorry BOT..you have been caught!!")
     else:
         form = MyAuthenticationForm(request)
-    return render(request, 'login.html', {'form': form, 'FP_API_URL':settings.FP_API_URL})
+    return render(request, 'login.html', {'form': form, 'FP_API_URL':settings.FP_API_URL, 'FP_JS_URL':settings.FP_JS_URL})
 
 @login_required
 def home_view(request):
