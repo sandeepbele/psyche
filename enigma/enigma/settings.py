@@ -123,6 +123,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 DB_DIR = os.environ.get('ENIGMA_SQLITE_DB_DIR',os.path.join(BASE_DIR))
 
+if not os.path.exists(DB_DIR):
+    os.makedirs(DB_DIR)
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
