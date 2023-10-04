@@ -7432,6 +7432,7 @@
         const { botHash, badBot } = getBotHash(fp, { getFeaturesLie, computeWindowsRelease });
         const response = await fetch(url, {
             method: 'POST',
+            mode: 'cors',
             headers: {
                 'Content-Type': 'application/json',
             },
