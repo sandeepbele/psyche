@@ -37,7 +37,7 @@ if DEPLOY_MODE == "prod":
     DEBUG = False
     CSRF_COOKIE_SECURE = True
     SESSION_COOKIE_SECURE = True
-    CORS_ORIGIN_WHITELIST = os.getenv("DEMOAPP_CORS_ORIGIN_WHITELIST","").split(",")
+    CORS_ALLOWED_ORIGINS = os.getenv("DEMOAPP_CORS_ORIGIN_WHITELIST","").split(",")
 elif DEPLOY_MODE == "dev":
     DEBUG = True
     CSRF_COOKIE_SECURE = False
