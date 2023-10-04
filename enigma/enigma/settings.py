@@ -36,10 +36,12 @@ if DEPLOY_MODE == "prod":
     DEBUG = False
     CSRF_COOKIE_SECURE = True
     SESSION_COOKIE_SECURE = True
+    CORS_ALLOWED_ORIGINS = os.getenv("ENIGMA_CORS_ORIGIN_WHITELIST","").split(",")
 elif DEPLOY_MODE == "dev":
     DEBUG = True
     CSRF_COOKIE_SECURE = False
     SESSION_COOKIE_SECURE = False
+    CORS_ORIGIN_ALLOW_ALL = True
 
 
 # Application definition
@@ -145,3 +147,5 @@ DATABASES = {
         'NAME': os.path.join(DB_DIR,'browserintel_db.sqlite3'),
     }
 }
+
+
