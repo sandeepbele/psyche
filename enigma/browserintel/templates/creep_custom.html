@@ -8,9 +8,21 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.0.2/css/bootstrap.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    
+
 </head>
 <body>
     <div class="container">
+        
+   
+    <div class="text-center m-5" id="loading">
+            <div class="spinner-border" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+    </div>
+
+
+    <div class="container" id="fingerprint-container">
         <div class="table-responsive">
             <table class="table table-striped">
                 <thead>
@@ -25,13 +37,17 @@
             <canvas id="myChart"></canvas>
         </div>
     </div>
+    </div>
     <script src="{% static 'driver.js' %}"></script>
     <script>
+        const loadingDiv = document.getElementById('loading');
+        const fpContainerDiv = document.getElementById('fingerprint-container');
+
         const fingerprintDataDiv = document.getElementById('fp-data');
 
         // Call the getFingerprintData function from driver.js
         async function fetchData() {
-            const data = await driver.getFingerprintData('http://localhost:8000/enigma/b/decode/');
+            const data = await driver.getFingerprintData('{% url "decode" %}');
             console.log(data);
 
             // Populate the table with data
@@ -40,109 +56,26 @@
                 const keyCell = document.createElement('td');
                 const valueCell = document.createElement('td');
                 keyCell.textContent = key;
-                valueCell.textContent = data.result[key];
+                valueCell.textContent = typeof data.result[key] === 'object' ? JSON.stringify(data.result[key]) : data.result[key];
                 row.appendChild(keyCell);
                 row.appendChild(valueCell);
                 fingerprintDataDiv.appendChild(row);
             }
+            // Hide the loading spinner
+            loadingDiv.style.display = 'none';
+            fpContainerDiv.style.display = 'block';
+
         }
 
         try {
-            fetchData()
+            fpContainerDiv.style.display = 'none';  // Hide the fingerprint data container
+            // Show the loading spinner
+            loadingDiv.style.display = 'block';
+            fetchData();
         } catch (err) {
             console.log(err);
         }
     </script>
-    <script>
-        // Retrieve the data for the chart from the server
-        fetch("{% url 'chart' %}").then(response => response.json()).then(data => {
-         
-        const seriesData = {};
-
-        data.forEach(entry => {
-            const day = entry.x.split(' ')[0];
-            const hour = parseInt(entry.y.split(' ')[1].split(':')[0]);
-            const key = `${entry.browser}-${entry.device}`;
-
-            if (!seriesData[key]) {
-                seriesData[key] = [];
-            }
-
-            seriesData[key].push({x: day, y: hour});
-
-        });
-        
-        const datasets = [];
-
-        for (const [key, data] of Object.entries(seriesData)) {
-            datasets.push({
-                label: key,
-                data: data,
-                fill: false,
-                borderColor: 'rgba(255, 99, 132, 1)',  // Choose a color
-            });
-        }
-        const ctx = document.getElementById('myChart').getContext('2d');
-        const myChart = new Chart(ctx, {
-        type: 'scatter',
-        data: {
-            labels: Array.from({ length: 24 }, (_, i) => i),  // Hours of the day
-            datasets: datasets
-        },
-        options: {
-            scales: {
-                x: {
-                    type: 'time',
-                    adapters: {
-                        date: {
-                            parser: 'yyyy-MM-dd',
-                        },
-                    },
-                    title: {
-                        display: true,
-                        text: 'Day'
-                    },
-                    ticks: {
-                        source: 'data'
-                    },
-                    time: {
-                        displayFormats: {
-                            day: 'yyyy-MM-dd'
-                        }
-                    },
-                    /*time: {
-                        min: getMinDate(datasets),
-                        max: getMaxDate(datasets)
-                    }*/
-                },
-                y: {
-                    type: 'linear',
-                    title: {
-                        display: true,
-                        text: 'Hour of the Day'
-                    },
-                    min: 0,
-                    max: 23
-                }
-            }
-        }
-        });
-
-        function getMinDate(datasets) {
-            const minDates = datasets.map(dataset => {
-                return Math.min(...dataset.data.map(data => new Date(data.x).getTime()));
-            });
-            return new Date(Math.min(...minDates)).toISOString().slice(0, 10);
-        }
-
-        function getMaxDate(datasets) {
-            const maxDates = datasets.map(dataset => {
-                return Math.max(...dataset.data.map(data => new Date(data.x).getTime()));
-            });
-            return new Date(Math.max(...maxDates)).toISOString().slice(0, 10);
-        }
-
-    });
-    </script>
+    
 </body>
 </html>

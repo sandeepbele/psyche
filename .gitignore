@@ -60,6 +60,7 @@ cover/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+enigma/static
 
 # Flask stuff:
 instance/
@@ -242,7 +243,8 @@ node_modules/
 dist/
 build/
 out/
-*.js
+docs/
+#*.js
 *.js.map
 
 # IDEs and editors
@@ -278,7 +280,7 @@ dist/
 build/
 out/
 public/
-*.js
+#*.js
 *.js.map
 
 # Logs and databases

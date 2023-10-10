@@ -2247,7 +2247,10 @@
                     return resolve(null);
                 });
             });
-            const scriptSource = 'driver.js';
+            
+            const port = location.port === '' ? '' : `:${location.port}`;
+            const scriptSource = `https://${location.hostname}${port}/static/driver.js`;
+
             WORKER_NAME = 'ServiceWorkerGlobalScope';
             WORKER_TYPE = 'service'; // loads fast but is not available in frames
             let workerScope = await getServiceWorker({ scriptSource }).catch((error) => {
