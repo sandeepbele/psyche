@@ -4,9 +4,12 @@ from django.db import models
 from django.utils import timezone
 from browserintel.fp import Fingerprint
 
+import uuid
 import json
+
 class FingerprintData(models.Model):
     fingerprint = models.JSONField()
+    request_id = models.CharField(max_length=255, null=True, default=uuid.uuid4)
     user_identifier = models.CharField(max_length=255)
     stable_fp = models.CharField(max_length=255)
     loose_fp = models.CharField(max_length=255)

@@ -12,6 +12,10 @@
 
 </head>
 <body>
+    <header class="navbar navbar-dark sticky-top bg-dark flex-md-nowrap p-0 shadow">
+        <a class="navbar-brand col-md-3 col-lg-2 me-0 px-3 fs-6" href="#">Anomalytica</a>
+      </header>
+
     <div class="container">
         
    
@@ -37,6 +41,12 @@
             <canvas id="myChart"></canvas>
         </div>
     </div>
+
+    <div class="container m-5">
+    <div class="alert alert-success" role="alert" id="fp-short">
+    </div>
+    </div>
+
     </div>
     <script src="{% static 'driver.js' %}"></script>
     <script>
@@ -44,31 +54,42 @@
         const fpContainerDiv = document.getElementById('fingerprint-container');
 
         const fingerprintDataDiv = document.getElementById('fp-data');
+        const fingerprintShortDiv = document.getElementById('fp-short');
 
         // Call the getFingerprintData function from driver.js
         async function fetchData() {
-            const data = await driver.getFingerprintData('{% url "decode" %}');
-            console.log(data);
 
-            // Populate the table with data
-            for (const key in data.result) {
-                const row = document.createElement('tr');
-                const keyCell = document.createElement('td');
-                const valueCell = document.createElement('td');
-                keyCell.textContent = key;
-                valueCell.textContent = typeof data.result[key] === 'object' ? JSON.stringify(data.result[key]) : data.result[key];
-                row.appendChild(keyCell);
-                row.appendChild(valueCell);
-                fingerprintDataDiv.appendChild(row);
+            const data = await driver.getFingerprintData('{% url "decode" a="short" %}');
+            console.log(data);
+            
+            if (data.result.type="short") {
+                const msgElement = document.createElement("div");
+                msgElement.innerHTML = data.result.msg;
+                fingerprintShortDiv.appendChild(msgElement);
+                fingerprintShortDiv.style.display = 'block';  // Show the fingerprint short container
+            } else {
+
+                // Populate the table with data
+                for (const key in data.result) {
+                    const row = document.createElement('tr');
+                    const keyCell = document.createElement('td');
+                    const valueCell = document.createElement('td');
+                    keyCell.textContent = key;
+                    valueCell.textContent = typeof data.result[key] === 'object' ? JSON.stringify(data.result[key]) : data.result[key];
+                    row.appendChild(keyCell);
+                    row.appendChild(valueCell);
+                    fingerprintDataDiv.appendChild(row);
+                }
+                fpContainerDiv.style.display = 'block';  // Show the fingerprint data container
             }
             // Hide the loading spinner
             loadingDiv.style.display = 'none';
-            fpContainerDiv.style.display = 'block';
-
+            
         }
 
         try {
             fpContainerDiv.style.display = 'none';  // Hide the fingerprint data container
+            fingerprintShortDiv.style.display = 'none';  // Hide the fingerprint short container
             // Show the loading spinner
             loadingDiv.style.display = 'block';
             fetchData();
