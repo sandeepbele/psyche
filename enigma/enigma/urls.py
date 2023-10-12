@@ -20,7 +20,7 @@ from .settings import STATIC_ROOT
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('enigma/b/', include('browserintel.urls')),
+    path('b/', include('browserintel.urls')),
     #path('logindemo/', include('logindemo.urls')),
 ]
 

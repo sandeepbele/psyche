@@ -1,7 +1,8 @@
-from django.urls import path
+from django.urls import path, include
 from . import views
 
 urlpatterns = [
+
     path('fp-analyse/', views.fp_analyse, name='fp_analyse'),
     path('decode/<a>/', views.decode, name='decode'),
     path('', views.index, name='index'),
