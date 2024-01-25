@@ -43,3 +43,6 @@ demo/amibot
 -  1: js/ts : strip js/ts code to necessities : build .. upload to CDN
 -  2: host browserintel as API 
 -  3: logindemo as another app : own database   
+
+
+docker run -d --name enigma --network host -p 6000:8000 --env-file /home/prod/.env -v /home/prod/app/enigma:/app sandeepbele/fraudiq-enigma:latest

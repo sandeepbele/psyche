@@ -182,6 +182,7 @@ env/
 ENV/
 .venv/
 .ENV/
+venv-*/
 
 # IDEs and editors
 .idea/
@@ -301,3 +302,15 @@ public/
 # Other
 .DS_Store
 Thumbs.db
+
+*.wav
+*.pkl
+*.png
+
+**/pretrained_models
+**/models
+creepjs/pup.js
+creepjs/rollup.config.js
+creepjs/samples.js
+creepjs/server.js
+demo/logindemo/static/driver.js
