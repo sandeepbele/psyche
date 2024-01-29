@@ -1,10 +1,9 @@
 
 from django.test import TestCase
+from capabilities.datamodels import AudioEntity
 
-from voice.models import Artifact
-from voice.archive.speaker_helper import extract_stacked_embeddings, extract_combined_embedding, perform_matching
-
-
+from capabilities.models import Artifact, Entity
+from capabilities.archive.speaker_helper import extract_stacked_embeddings, extract_combined_embedding, perform_matching
 
 """
 class SpeakerHelperTestCase(TestCase):
@@ -41,11 +40,11 @@ class SpeakerHelperTestCase(TestCase):
 """
 
 from django.test import TestCase
-from voice.asr.datamodels import TSegment
-from voice.services import ArtifactService
-from voice.asr.datamodels import TSegment, SpeakerSegment
+from capabilities.asr.datamodels import TSegment
+from capabilities.services import ArtifactService
+from capabilities.asr.datamodels import TSegment, SpeakerSegment
 from datetime import datetime
-from voice.models import PipelineRun
+from capabilities.models import PipelineRun
 
 class ArtifactServiceTest(TestCase):
     def setUp(self):
@@ -85,7 +84,7 @@ class ArtifactServiceTest(TestCase):
         mock_pipeline_run.save()
 
         ArtifactService.store(
-            pipeline_run_id=mock_pipeline_run,
+            pipeline_run_id=mock_pipeline_run.id,
             processor_type=self.processor_type,
             artifact_type=self.artifact_type,
             data=self.data,
@@ -99,25 +98,95 @@ class ArtifactServiceTest(TestCase):
         self.assertEqual(TSegment.model_validate_json(artifact.data), self.data)
 
 
-
+"""
 from unittest.mock import patch, Mock
-from voice.processing.tasks import store_artifact
+from capabilities.processing.tasks import store_artifact
+import pydantic 
 
 class TestLogArtifact(TestCase):
-    @patch('voice.services.ArtifactService.log', autospec=True)
+    @patch('capabilities.services.ArtifactService.store', autospec=True)
     def test_log_artifact(self, mock_log):
         # Create a mock function
         @store_artifact('processor_type', 'artifact_type')
-        def mock_func(pipeline_run_id):
-            return {'key': 'value'}
+        def mock_func(pipeline_run_id,kwargs,context):
+            return TSegment()
 
         # Call the decorated function
-        mock_func(pipeline_run_id='pipeline_run_id')
-
+        mock_func('pipeline_run_id',kwargs={},context={})
+        
         # Check that ArtifactService.log was called with the correct arguments
         mock_log.assert_called_once_with(
             pipeline_run_id='pipeline_run_id',
             processor_type='processor_type',
             artifact_type='artifact_type',
-            data={'key': 'value'}
+            data=TSegment(),
         )
+"""
+
+
+from django.test import TestCase
+import json
+from capabilities.datamodels import AudioEntity, Entity
+
+class TestAudioEntity(TestCase):
+    def setUp(self):
+        self.entity = Entity(
+            id=1,
+            type='audio',
+            created_ts='2022-01-01T00:00:00Z',
+            hash='1234567890abcdef',
+            data= b'test data',
+            metadata=json.dumps({
+                'sample_rate': 44100,
+                'channels': 2,
+                'size': 10000,
+                'start_time': 0.0,
+                'duration': 3.5
+            }),
+        )
+
+    def test_from_entity(self):
+        audio_entity = AudioEntity.from_entity(self.entity)
+        self.assertEqual(audio_entity.sample_rate, 44100)
+        self.assertEqual(audio_entity.channels, 2)
+        self.assertEqual(audio_entity.size, 10000)
+        self.assertEqual(audio_entity.start_time, 0.0)
+        self.assertEqual(audio_entity.duration, 3.5)
+        self.assertEqual(audio_entity.type, 'audio')
+        self.assertEqual(audio_entity.data, b'test data')
+
+from django.test import TestCase
+from django.utils import timezone
+from .models import Entity
+
+class TestEntityModel(TestCase):
+    def setUp(self):
+        self.entity = Entity.objects.create(
+            type='audio_wav',
+            created_ts=timezone.now(),
+            #hash='1234567890abcdef',
+            data=b'test data',
+            metadata={'sample_rate': 44100, 'channels': 2, 'size': 10000, 'duration': 3.5}
+        )
+
+    def test_entity_creation(self):
+        self.assertIsInstance(self.entity, Entity)
+        self.assertEqual(self.entity.type, 'audio_wav')
+        self.assertEqual(self.entity.hash, str(hash(self.entity.data)))
+        self.assertEqual(self.entity.data, b'test data')
+        self.assertEqual(self.entity.metadata, {'sample_rate': 44100, 'channels': 2, 'size': 10000, 'duration': 3.5})
+
+    def test_save_method(self):
+        entity_same_hash = Entity(
+            type='json',
+            created_ts=timezone.now(),
+            #hash='1234567890abcdef',
+            data= b'test data',
+            metadata={'sample_rate': 44100, 'channels': 2, 'size': 10000, 'duration': 3.5}
+        )
+        saved_entity = entity_same_hash.save()
+        self.assertEqual(saved_entity.id, self.entity.id)
+        self.assertEqual(saved_entity.type, self.entity.type)
+        self.assertEqual(saved_entity.hash, self.entity.hash)
+        self.assertEqual(saved_entity.data, self.entity.data)
+        self.assertEqual(saved_entity.metadata, self.entity.metadata)

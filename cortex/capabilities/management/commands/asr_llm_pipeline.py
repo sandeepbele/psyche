@@ -3,6 +3,7 @@ from capabilities.processing.celery_pipelines import ASRWithLLMOnCelery
 from capabilities.processing.rx_pipelines import ASRWithLLMOnRx
 from diart.sources import MicrophoneAudioSource, FileAudioSource
 from capabilities.pipeline_config import config
+from capabilities.processing.factory import get_audio_file_processing_pipeline
 
 class Command(BaseCommand):
     help = 'Runs the ASR LLM pipeline'
@@ -15,13 +16,18 @@ class Command(BaseCommand):
         audio_file = options['audio_file']
         backend = options['backend']
 
-        source = FileAudioSource(audio_file, config['audio_source_sample_rate'])
+        """source = FileAudioSource(audio_file, config['audio_source_sample_rate'])
         pipeline = None
         if backend == 'rx':
             pipeline = ASRWithLLMOnRx(source, config)
         elif backend == 'celery':
             pipeline = ASRWithLLMOnCelery(source, config)
         else:
-            raise Exception(f"Invalid backend:{backend}")
-
-        pipeline.execute()
+            raise Exception(f"Invalid backend:{backend}")"""
+            
+        try:
+            pipeline = get_audio_file_processing_pipeline(audio_file,backend)
+            pipeline.execute()
+        except Exception as e:
+            print(f"Error: {e}")
+            return

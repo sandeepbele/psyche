@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Audio Processing and Polling</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+</head>
+<body class="container py-5">
+
+<div id="uploadNotification" class="alert" style="display: none;"></div>
+
+<form id="uploadForm" class="mb-3">
+    <div class="mb-3">
+        <input class="form-control" type="file" name="audio_file" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Upload Audio</button>
+</form>
+
+<div class="progress" style="height: 20px; display: none;" id="progressBarContainer">
+    <div id="uploadProgress" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+</div>
+
+
+<button id="stopPollingButton" class="btn btn-secondary mt-3" style="display: none;">Stop Polling</button>
+
+<div id="artifacts" class="mt-3">
+    <div class="container py-5">
+        <div class="row">
+            <div class="col-md-6" id="asrResults">
+                <h4>ASR Results</h4>
+                <!-- ASR records will be appended here -->
+            </div>
+            <div class="col-md-6" id="llmResults">
+                <h4>LLM Results</h4>
+                <!-- LLM records will be appended here -->
+            </div>
+        </div>
+    </div>    
+</div>
+
+<script>
+document.getElementById('uploadForm').addEventListener('submit', function(event) {
+    event.preventDefault();
+
+    const formData = new FormData(event.target);
+    const uploadEndpoint = '/process_audio/'; // Adjust the endpoint as needed
+    const progressBarContainer = document.getElementById('progressBarContainer');
+    const uploadProgress = document.getElementById('uploadProgress');
+
+    // Show the progress bar container
+    progressBarContainer.style.display = 'block';
+    uploadProgress.style.width = '0%'; // Reset progress bar width
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', uploadEndpoint, true);
+
+    xhr.upload.onprogress = function(event) {
+        if (event.lengthComputable) {
+            const percentComplete = (event.loaded / event.total) * 100;
+            uploadProgress.style.width = percentComplete + '%'; // Update the progress bar width
+            uploadProgress.setAttribute('aria-valuenow', percentComplete);
+        }
+    };
+
+    xhr.onload = function() {
+        const uploadNotification = document.getElementById('uploadNotification');
+        if (xhr.status === 200) {
+            const data = JSON.parse(xhr.responseText);
+            if (data && data.pipeline_run_id && data.task_id) {
+                // Start polling for artifacts if the upload was successful
+                startPolling(data.pipeline_run_id,data.task_id);
+                // Show success notification
+                uploadNotification.className = 'alert alert-success';
+                uploadNotification.textContent = 'File uploaded successfully!';
+                uploadNotification.style.display = 'block';
+            } else {
+                console.error('Upload failed or pipeline_run_id not returned');
+                // Show error notification
+                uploadNotification.className = 'alert alert-danger';
+                uploadNotification.textContent = 'Upload failed or no pipeline run ID returned.';
+                uploadNotification.style.display = 'block';
+            }
+        } else {
+            console.error('Error uploading file:', xhr.statusText);
+            // Show error notification
+            uploadNotification.className = 'alert alert-danger';
+            uploadNotification.textContent = `Error uploading file: ${xhr.statusText}`;
+            uploadNotification.style.display = 'block';
+        }
+        // Hide the progress bar container after upload is complete or fails
+        progressBarContainer.style.display = 'none';
+    };
+
+    xhr.onerror = function() {
+        console.error('Error uploading file:', xhr.statusText);
+        // Show error notification
+        const uploadNotification = document.getElementById('uploadNotification');
+        uploadNotification.className = 'alert alert-danger';
+        uploadNotification.textContent = `Error uploading file: ${xhr.statusText}`;
+        uploadNotification.style.display = 'block';
+        // Hide the progress bar container on error
+        progressBarContainer.style.display = 'none';
+    };
+
+
+    xhr.send(formData); // Send the form data
+});
+
+function processLlmData(llmData) {
+    // Risk Meter based on social_engineering and scam values
+    const riskLevel = llmData.social_engineering === 'True' || llmData.scam !== 'False' ? 'High Risk' : 'Low Risk';
+    const riskClass = riskLevel === 'High Risk' ? 'btn-danger' : 'btn-success';
+
+    // Formatting emotions
+    const agentEmotions = JSON.parse(llmData.agent_emotions).join(', ');
+    const customerEmotions = JSON.parse(llmData.customer_emotions).join(', ');
+
+    return `
+        <div class="risk-meter mb-2"><strong>Risk Meter: </strong><button class="btn ${riskClass}">${riskLevel}</button></div>
+        <div class="reasoning mb-2"><strong>Reasoning: </strong>${llmData.reasoning}</div>
+        <div class="emotions mb-2">
+            <strong>Agent Emotions: </strong>${agentEmotions}<br>
+            <strong>Customer Emotions: </strong>${customerEmotions}
+        </div>
+    `;
+}
+
+function displayResults(data) {
+    const asrResultsContainer = document.getElementById('asrResults');
+    const llmResultsContainer = document.getElementById('llmResults');
+    let asrChunk = 1;
+    let llmChunk = 1;
+
+    data.forEach((artifact, index) => {
+        // Assuming the ASR and LLM records are in pairs and in order
+        if (artifact.fields.processor_type === 'asr') {
+            const asrData = JSON.parse(artifact.fields.data);
+            const asrElement = document.createElement('div');
+            asrElement.className = 'artifact asr';
+            asrElement.innerHTML = `<p><strong>Chunk ${asrChunk} - ASR:</strong> ${asrData.speaker_segments.map(segment => `[${segment.speaker}]: ${segment.text}`).join('<br>')}</p>`;
+            asrResultsContainer.appendChild(asrElement);
+            asrChunk++;
+        } else if (artifact.fields.processor_type === 'llm') {
+            const llmData = JSON.parse(artifact.fields.data); // Assuming LLM data structure is similar or adjust accordingly
+            const llmElement = document.createElement('div');
+            llmElement.className = 'artifact llm';
+            llmElement.innerHTML = processLlmData(llmData.parsed_response);
+            llmResultsContainer.appendChild(llmElement);
+            llmChunk++;
+        }
+    });
+}
+
+
+function startPolling(pipelineRunId, taskId) {
+    const pollFrequency = 5000; // 5 seconds
+    const artifactsEndpoint = `/api/artifacts/${pipelineRunId}/${taskId}`;
+    const stopPollingButton = document.getElementById('stopPollingButton');
+    stopPollingButton.style.display = 'block';
+
+    const delay = duration => new Promise(resolve => setTimeout(resolve, duration));
+
+    async function poll() {
+        try {
+            const response = await fetch(artifactsEndpoint);
+            const data = await response.json();
+
+            if (typeof data === 'string') {
+                data = JSON.parse(data);
+            }
+            if (typeof data.artifacts === 'string') {
+                data.artifacts = JSON.parse(data.artifacts);
+            }
+            if (data.run_completed) {
+                stopPollingButton.style.display = 'none';
+                return // Exit the polling loop
+            } else if (data.artifacts && data.artifacts.length > 0) {
+                displayResults(data.artifacts);
+            }
+
+            await delay(pollFrequency);
+            poll(); // Recursive call
+        } catch (error) {
+            console.error('Error fetching artifacts:', error);
+        }
+    }
+
+    poll(); // Initial call
+
+    stopPollingButton.addEventListener('click', function() {
+        stopPollingButton.style.display = 'none';
+        // Stop the polling. Implement logic to break out of the recursive calls.
+    });
+}
+
+function startPolling2(pipelineRunId, taskId) {
+    const pollFrequency = 5000; // Poll every 5 seconds
+    const artifactsEndpoint = `/api/artifacts/${pipelineRunId}/${taskId}`; // Adjust with your actual API endpoint
+    const stopPollingButton = document.getElementById('stopPollingButton');
+    stopPollingButton.style.display = 'block'; // Show the stop polling button
+
+    let isRequestInProgress = false;
+
+    const intervalId = setInterval(() => {
+        if (isRequestInProgress) {
+            return;
+        }
+
+        isRequestInProgress = true;
+
+        fetch(artifactsEndpoint)
+            .then(response => response.json())
+            .then(data => {
+                // Parse data as JSON if it's a string
+                if (typeof data === 'string') {
+                    data = JSON.parse(data);
+                }
+                if (typeof data.artifacts === 'string') {
+                    data.artifacts = JSON.parse(data.artifacts);
+                }
+                if (data.run_completed) {
+                    clearInterval(intervalId);
+                    stopPollingButton.style.display = 'none'; // Hide the stop polling button
+                } else if (data.artifacts.length > 0) {
+                    displayResults(data.artifacts); // Call the new function to process and display results
+                }
+            })
+            .catch(error => console.error('Error fetching artifacts:', error))
+            .finally(() => {
+                isRequestInProgress = false;
+            });
+    }, pollFrequency);
+
+    stopPollingButton.addEventListener('click', function() {
+        clearInterval(intervalId);
+        stopPollingButton.style.display = 'none'; // Hide the stop polling button
+    });
+}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+
+</body>
+</html>

@@ -11,7 +11,7 @@ from capabilities.processing.base import AbstractPipeline
 
 class ASRWithLLMOnRx(AbstractPipeline):
     
-    def __init__(self, source, kwargs):
+    def __init__(self, source, kwargs, pipeline_run_id=None):
         self.source = source
         self.kwargs = kwargs
         self.setup()

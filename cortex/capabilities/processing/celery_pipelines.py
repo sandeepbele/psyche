@@ -12,8 +12,8 @@ class ASRWithLLMOnCelery(TrackablePipeline):
 
     PIPELINE_TYPE = "asr_llm_celery"
 
-    def __init__(self, source, kwargs):
-        super().__init__(self.PIPELINE_TYPE)
+    def __init__(self, source, kwargs, pipeline_run_id=None):
+        super().__init__(self.PIPELINE_TYPE, pipeline_run_id=pipeline_run_id)
         self.source = source
         self.kwargs = kwargs
         self.segment_start_time = 0

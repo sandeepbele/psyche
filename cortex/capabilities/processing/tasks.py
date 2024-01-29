@@ -62,6 +62,7 @@ def store_artifact(processor_type, artifact_type):
                         'total_run_time_ms': total_run_time * 1000,
                         'origin': current_task.request.hostname,
                         'root_task_id': current_task.request.root_id,
+                        'context': context
                     }
                 )
             else:

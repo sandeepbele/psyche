@@ -10,13 +10,20 @@ class AbstractPipeline:
 
 
 class TrackablePipeline(AbstractPipeline):
-    def __init__(self, type, name=None):
+    def __init__(self, type, name=None, pipeline_run_id=None):
         super().__init__()
-        self.pipeline_run = PipelineRun.objects.create(
-            type=type,
-            name= name if name else randomname.get_name(),     
-        )  # Create a new PipelineRun object
-        self.pipeline_run_id = self.pipeline_run.id  # Store the ID of the PipelineRun object
+        if pipeline_run_id is None:
+            self.pipeline_run = PipelineRun.objects.create(
+                type=type,
+                name= name if name else randomname.get_name(),     
+            )  # Create a new PipelineRun object
+            self.pipeline_run_id = self.pipeline_run.id  # Store the ID of the PipelineRun object
+        else:
+            self.pipeline_run_id = pipeline_run_id
+            try:
+                self.pipeline_run = PipelineRun.objects.get(id=pipeline_run_id)
+            except PipelineRun.DoesNotExist:
+                raise Exception(f"PipelineRun with id {pipeline_run_id} does not exist")
 
     def execute(self):
         if self.status == 1:

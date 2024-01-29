@@ -1,0 +1,415 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FraudIQ - Audio Processing</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+
+    <!-- Header with Logo -->
+    <nav class="navbar navbar-light bg-light">
+        <div class="container d-flex align-items-center">
+            <a class="navbar-brand d-flex align-items-center" href="#">
+                <img src="{% static 'logo_transparent_background.png' %}" alt="Anomalytica" height="60" class="d-inline-block align-text-top">
+                FraudIQ
+            </a>
+        </div>
+    </nav>
+
+    <div class="container py-5">
+
+        <div class="text-center mb-4">
+            <h1>Welcome to <span style="color: #b30000;">FraudIQ</span></h1>
+            <p class="lead">Next Generation Fraud Detection Platform</p>
+        </div>
+
+        <!-- Upload Row -->
+        <div class="row justify-content-center mb-3">
+            <div class="col-md-3">
+                <input class="form-control" type="file" name="audio_file" id="audioInput" required>
+            </div>
+            <div class="col-md-1">
+                <button type="submit" form="uploadForm" class="btn btn-primary" id="uploadButton">Upload</button>
+            </div>
+        </div>
+
+        <!-- Progress Bar Row -->
+        <div class="row my-4 justify-content-center"> <!-- Increased margin for y-axis -->
+            <div class="col-7">
+                <div class="progress" style="height: 20px;display: none;" id="progressBarContainer">
+                    <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Audio Player/Spinner Row -->
+        <div class="row justify-content-center">
+            <div class="col-md-4 text-center" id="playerContainer">
+                <audio id="chunkPlayer" controls style="display: none;"></audio>
+                <div id="spinner" class="spinner-border" role="status" style="display: none;">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        </div>
+        <form id="uploadForm"></form>
+
+        <div class="row mt-3">
+            <div class="col" id="artifacts">
+                <!-- Results will be dynamically appended here -->
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Footer -->
+    <footer class="text-center text-lg-start bg-light text-muted">
+        <div class="text-center p-4">
+            © 2024 Anomalytica - FraudIQ. All rights reserved.
+        </div>
+    </footer>
+
+<script>
+
+document.getElementById('uploadForm').addEventListener('submit', function(event) {
+    event.preventDefault();
+    const file = document.querySelector('input[type="file"]').files[0];
+    const reader = new FileReader();
+    reader.readAsArrayBuffer(file);
+
+    // Main processing function
+    reader.onload = async function() {
+
+        document.getElementById('audioInput').disabled = true;
+        document.getElementById('uploadButton').disabled = true;
+        document.getElementById('uploadButton').innerText = "Analyzing...";
+
+        const audioContext = new AudioContext();
+        const audioBuffer = await audioContext.decodeAudioData(reader.result);
+
+        const chunkDuration = 30; // seconds
+        const numberOfChunks = Math.ceil(audioBuffer.duration / chunkDuration);
+        updateProgressBar(0);
+
+        for (let i = 0; i < numberOfChunks; i++) {
+            const startTime = i * chunkDuration;
+            const endTime = Math.min((i + 1) * chunkDuration, audioBuffer.duration);
+
+            const chunkBuffer = extractChunk(audioContext, audioBuffer, startTime, endTime);
+            const chunkBlob = convertToBlob(chunkBuffer);
+
+            try {
+                const { pipelineRunId, taskId } = await sendChunkToServer(chunkBlob, i);
+                // Create a URL for the blob and set it as the source of the audio player
+                const audioUrl = URL.createObjectURL(chunkBlob);
+                const chunkPlayer = document.getElementById('chunkPlayer');
+                chunkPlayer.src = audioUrl;
+                chunkPlayer.style.display = 'block'; // Show the player
+
+                // Play the audio chunk
+                chunkPlayer.play();
+
+                // Wait for the audio to finish playing or for the user to stop it
+                await new Promise((resolve, reject) => {
+                    chunkPlayer.onended = resolve;
+                    chunkPlayer.onerror = reject;
+                });
+
+                // Hide the player after playback
+                chunkPlayer.style.display = 'none';
+
+                const timeout = 90000; // Polling timeout in milliseconds
+                // Show spinner
+                document.getElementById('spinner').style.display = 'block';
+                const artifacts = await pollForResults(pipelineRunId, taskId, timeout);
+                document.getElementById('spinner').style.display = 'none';
+                displayResults(artifacts,i);
+                // Update the progress bar
+                updateProgressBar((i + 1) / numberOfChunks * 100);
+            } catch (error) {
+                console.error(`Error in processing chunk ${i}:`, error);
+                // Handle error, possibly break out of the loop or continue with the next chunk
+            }
+        }
+        document.getElementById('audioInput').enabled = true;
+        document.getElementById('uploadButton').enabled = true;
+        document.getElementById('uploadButton').innerText = "Upload";
+    };
+});
+
+function updateProgressBar(percentage) {
+    const progressBarContainer = document.getElementById('progressBarContainer');
+    progressBarContainer.style.display = 'block';
+    const progressBar = document.getElementById('progressBar');
+    progressBar.style.width = percentage + '%';
+    progressBar.setAttribute('aria-valuenow', percentage);
+    progressBar.textContent = percentage.toFixed(0) + '%';
+}
+
+function extractChunk(audioContext, audioBuffer, startTime, endTime) {
+    const sampleRate = audioBuffer.sampleRate;
+    const startOffset = Math.floor(startTime * sampleRate);
+    const endOffset = Math.floor(endTime * sampleRate);
+    const frameCount = endOffset - startOffset;
+
+    // Mono audio: only one channel
+    const chunkBuffer = audioContext.createBuffer(
+        1, frameCount, sampleRate
+    );
+
+    const audioBufferData = audioBuffer.getChannelData(0); // Mono channel
+    const chunkBufferData = chunkBuffer.getChannelData(0);
+    for (let i = startOffset, j = 0; i < endOffset; i++, j++) {
+        chunkBufferData[j] = audioBufferData[i];
+    }
+
+    return chunkBuffer;
+}
+
+function audioBufferToWav(buffer, opts) {
+    opts = opts || {};
+    const numChannels = opts.isMono ? 1 : buffer.numberOfChannels;
+    const sampleRate = buffer.sampleRate;
+    const format = 1; // PCM format
+    const bitDepth = 16;
+
+    let blockAlign = numChannels * bitDepth / 8;
+    let byteRate = sampleRate * blockAlign;
+    let dataSize = buffer.length * numChannels * 2; // 2 bytes per sample per channel
+    let bufferLength = 44 + dataSize; // 44 bytes for header
+
+    let arrayBuffer = new ArrayBuffer(bufferLength);
+    let view = new DataView(arrayBuffer);
+
+    // Writing WAV header
+    writeString(view, 0, 'RIFF'); // ChunkID
+    view.setUint32(4, 36 + dataSize, true); // ChunkSize
+    writeString(view, 8, 'WAVE'); // Format
+    writeString(view, 12, 'fmt '); // Subchunk1ID
+    view.setUint32(16, 16, true); // Subchunk1Size
+    view.setUint16(20, format, true); // AudioFormat
+    view.setUint16(22, numChannels, true); // NumChannels
+    view.setUint32(24, sampleRate, true); // SampleRate
+    view.setUint32(28, byteRate, true); // ByteRate
+    view.setUint16(32, blockAlign, true); // BlockAlign
+    view.setUint16(34, bitDepth, true); // BitsPerSample
+    writeString(view, 36, 'data'); // Subchunk2ID
+    view.setUint32(40, dataSize, true); // Subchunk2Size
+
+    // Converting AudioBuffer to 16-bit PCM
+    let offset = 44;
+    for (let i = 0; i < buffer.length; i++) {
+        for (let channel = 0; channel < numChannels; channel++) {
+            let sample = buffer.getChannelData(channel)[i];
+            sample = Math.max(-1, Math.min(1, sample)); // Clamping
+            view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+            offset += 2;
+        }
+    }
+
+    return arrayBuffer;
+}
+
+function writeString(view, offset, string) {
+    for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+    }
+}
+
+
+function convertToBlob(buffer) {
+    // Use an AudioBuffer to WAV encoder for mono audio
+    // Example: audioBufferToWav(buffer, { isMono: true }) function which needs to be implemented
+    const wavArrayBuffer = audioBufferToWav(buffer, { isMono: true });
+    return new Blob([wavArrayBuffer], { type: 'audio/wav' });
+}
+
+// Modified sendChunkToServer function
+async function sendChunkToServer(blob, chunkIndex) {
+    const formData = new FormData();
+    formData.append('audio_file', blob, `chunk_${chunkIndex}.wav`);
+
+    try {
+        const response = await fetch('/process_audio/', {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+        console.log(`Chunk ${chunkIndex} processed:`, result);
+
+        if (result.pipeline_run_id && result.task_id) {
+            return { pipelineRunId: result.pipeline_run_id, taskId: result.task_id };
+        } else {
+            throw new Error('Pipeline run ID or task ID not found in response');
+        }
+    } catch (error) {
+        console.error(`Error sending chunk ${chunkIndex}:`, error);
+        throw error; // Rethrow the error to handle it in the calling function
+    }
+}
+// Simplified polling function
+async function pollForResults(pipelineRunId, taskId, timeout) {
+    const pollFrequency = 5000; // 5 seconds
+    const artifactsEndpoint = `/api/artifacts/${pipelineRunId}/${taskId}`;
+    const deadline = Date.now() + timeout;
+    let allArtifacts = []; // To store all artifacts
+
+    while (Date.now() < deadline) {
+        try {
+            const response = await fetch(artifactsEndpoint);
+            const data = await response.json();
+
+            if (typeof data === 'string') {
+                data = JSON.parse(data);
+            }
+            if (typeof data.artifacts === 'string') {
+                data.artifacts = JSON.parse(data.artifacts);
+            }
+
+            // Append new artifacts to the allArtifacts array
+            if (data.artifacts && data.artifacts.length > 0) {
+                allArtifacts = allArtifacts.concat(data.artifacts);
+            }
+
+            if (data.run_completed) {
+                return allArtifacts; // Return all collected artifacts
+            }
+        } catch (error) {
+            console.error('Error fetching artifacts:', error);
+        }
+
+        await new Promise(resolve => setTimeout(resolve, pollFrequency));
+    }
+
+    throw new Error('Polling timed out');
+}
+
+async function playChunkAndPoll(chunkIndex, pipelineRunId, taskId, timeout) {
+    // Get the audio chunk blob
+    const chunkBlob = getAudioChunkBlob(chunkIndex);
+
+    // Create a URL for the blob and set it as the source of the audio player
+    const audioUrl = URL.createObjectURL(chunkBlob);
+    const chunkPlayer = document.getElementById('chunkPlayer');
+    chunkPlayer.src = audioUrl;
+    chunkPlayer.style.display = 'block'; // Show the player
+
+    // Play the audio chunk
+    chunkPlayer.play();
+
+    // Wait for the audio to finish playing or for the user to stop it
+    await new Promise((resolve, reject) => {
+        chunkPlayer.onended = resolve;
+        chunkPlayer.onerror = reject;
+    });
+
+    // Hide the player after playback
+    chunkPlayer.style.display = 'none';
+
+    // Poll for results
+    const results = await pollForResults(pipelineRunId, taskId, timeout);
+    displayResults(results);
+}
+
+
+function processLlmData(llmData) {
+    // Risk Meter based on social_engineering and scam values
+    const riskLevel = (llmData.social_engineering !== 'False' && llmData.social_engineering !== 'Unknown') || (llmData.scam !== 'False' && llmData.scam !== 'Unknown') ? 'High' : 'Low';
+    const riskClass = riskLevel === 'High' ? 'btn-danger' : 'btn-success';
+
+    const agentEmotions = llmData.agent_emotions 
+    ? JSON.parse(llmData.agent_emotions).join(', ') 
+    : 'NA';
+
+    const customerEmotions = llmData.customer_emotions 
+    ? JSON.parse(llmData.customer_emotions).join(', ') 
+    : 'NA';
+
+    return `
+        <div class="risk-meter mb-2"><strong>Conversation Risk: </strong><button class="btn btn-sm ${riskClass}">${riskLevel}</button></div>
+        <div class="scam mb-2"><strong>Scam: </strong>${llmData.scam}</div>
+        <div class="socialeng mb-2"><strong>Social Engineering: </strong>${llmData.social_engineering}</div>
+        <div class="reasoning mb-2"><strong>Reasoning: </strong>${llmData.reasoning}</div>
+        <div class="emotions mb-2">
+            <strong>Agent Emotions: </strong>${agentEmotions}<br>
+            <strong>Customer Emotions: </strong>${customerEmotions}
+        </div>
+    `;
+}
+
+function displayResults(data,chunkIndex) {
+    const resultsContainer = document.getElementById('artifacts');
+    // Check if the header row already exists
+    if (!document.getElementById('headerRow')) {
+        const headerRow = document.createElement('div');
+        headerRow.id = 'headerRow';
+        headerRow.className = 'row mb-3';
+
+        const asrHeader = document.createElement('div');
+        asrHeader.className = 'col-md-6';
+        asrHeader.innerHTML = '<div class="artifact asr p-3 border rounded bg-light strong">Conversation Segments</div>';
+
+        const llmHeader = document.createElement('div');
+        llmHeader.className = 'col-md-6';
+        llmHeader.innerHTML = '<div class="artifact llm p-3 border rounded bg-light strong">FraudIQ Assessment</div>';
+
+        headerRow.appendChild(asrHeader);
+        headerRow.appendChild(llmHeader);
+        resultsContainer.appendChild(headerRow);
+    }
+    
+    const rowDiv = document.createElement('div');
+    rowDiv.className = 'row mb-3';
+    const asrDiv = document.createElement('div');
+    asrDiv.className = 'col-md-6';
+    asrDiv.innerHTML = '<div class="artifact asr p-3 border rounded bg-light text-muted">ASR Data Not Available</div>';
+
+    const llmDiv = document.createElement('div');
+    llmDiv.className = 'col-md-6';
+    llmDiv.innerHTML = '<div class="artifact llm p-3 border rounded bg-light text-muted">LLM Data Not Available</div>';
+
+    // Define a set of colors for speakers
+    const speakerColors = ["#007bff", "#28a745", "#dc3545", "#ffc107", "#17a2b8", "#6c757d"];
+    let colorMap = {};
+
+    data.forEach((artifact, index) => {
+
+        if (artifact.fields.processor_type === 'asr') {
+            const asrData = JSON.parse(artifact.fields.data);
+            asrData.speaker_segments.forEach((segment, index) => {
+            if (!colorMap[segment.speaker]) {
+                colorMap[segment.speaker] = speakerColors[index % speakerColors.length];
+            }
+            });
+            // Construct the inner HTML with color-coded speakers
+            asrDiv.innerHTML = `<div class="artifact asr p-3 border rounded bg-light">
+                <p><strong>Segment ${chunkIndex+1}:</strong></p>
+                ${asrData.speaker_segments.map(segment => {
+                    const speakerColor = colorMap[segment.speaker];
+                    return `<p><span style="color: ${speakerColor};">[Speaker-${segment.speaker}]</span>: ${segment.text}</p>`;
+                }).join('')}
+            </div>`;
+        } 
+
+        if (artifact.fields.processor_type === 'llm') {
+            const llmData = JSON.parse(artifact.fields.data);
+            llmDiv.innerHTML = `<div class="artifact llm p-3 border rounded bg-light">
+                ${processLlmData(llmData.parsed_response)}
+            </div>`;
+        } 
+    });
+    rowDiv.appendChild(asrDiv);
+    rowDiv.appendChild(llmDiv);
+    resultsContainer.appendChild(rowDiv);
+}
+
+
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+
+</body>
+</html>
