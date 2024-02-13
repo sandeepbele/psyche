@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from datetime import datetime
 
 class OllamaRun(BaseModel):
-    prompt: str
+    prompt: str = None
     raw_response: str = None
     parsed_response: dict = None
     id : int = 0

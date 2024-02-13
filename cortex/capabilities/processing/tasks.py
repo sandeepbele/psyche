@@ -1,10 +1,20 @@
-from typing import Any, Dict, Optional
+from datetime import datetime
+import re
+from typing import Any, Dict, List, Optional
+
+from haystack import Document, Pipeline, component
 from capabilities.asr.datamodels import TSegment
 from capabilities.asr.models import WhisperTranscriber2
 from celery import Celery
+from capabilities.llm.datamodels import OllamaRun
 from capabilities.llm.ollama import ConversationMemory, OllamaThread
 from pydantic import BaseModel
+from capabilities.models import Artifact
 from capabilities.services import ArtifactService
+from haystack.components.builders import PromptBuilder
+from haystack_integrations.components.generators.ollama import OllamaGenerator
+import uuid, json
+from pydantic import ValidationError
 
 #app = Celery('tasks', broker='redis://localhost:6379/0', result_backend='redis://localhost:6379/0')
 #app.conf.event_serializer = 'pickle' # this event_serializer is optional. somehow i missed this when writing this solution and it still worked without.
@@ -153,5 +163,148 @@ def transcribe(audio_sliding_window_feature: Any, kwargs: Dict[str, Any], contex
                       processor_type='asr')
 
 
+
+@shared_task
+@store_artifact(processor_type='llm', artifact_type='RAW')
+def llm_using_haystack(prompt,kwargs,context):
+
+    @component
+    class ArtifactRetriever:
+
+        @component.output_types(documents=List[Document])
+        def run(self, filters: dict, sort: List[str] = [], limit: int = 10, offset: int = 0, **kwargs):
+            processor_type_to_model = {
+                'asr': TSegment,
+                'llm': OllamaRun
+            }
+
+            entities = Artifact.objects.filter(**filters).order_by(*sort)[offset:offset+limit]
+            documents = []
+            for entity in entities:
+                try:
+                    model = processor_type_to_model.get(filters.get('processor_type'))
+                    if model:
+                        data = model.parse_obj(json.loads(entity.data))
+                    else:
+                        data = json.loads(entity.data)
+                    documents.append(Document(content=str(data), meta=entity.metadata))
+                except ValidationError as e:
+                    print(f"Validation error for entity {entity.id}: {e}")
+            return {"documents": documents}
+        
+    
+    run = OllamaRun()
+    run.req_initiated_ts = datetime.now()
+    template = """
+            Given the following information, answer the question.
+
+            Context:
+            {% for document in documents %}
+                {{ document.content }}
+            {% endfor %}
+
+            Question: {{query}}
+            Output format: { 'scam': 'true', 'social_engineering':'false','reasoning': 'because ...'}
+            Answer:
+            """
+
+    pipeline_run_id = context.get('pipeline_run_id')
+
+    pipe = Pipeline()
+
+    pipe.add_component('retriever', ArtifactRetriever())
+    pipe.add_component("prompt_builder", PromptBuilder(template=template))
+    pipe.add_component("llm", OllamaGenerator(model="mistral", url="http://localhost:11434/api/generate"))
+    pipe.connect("retriever", "prompt_builder.documents")
+    pipe.connect("prompt_builder", "llm")
+    
+    query = """This is telephonic conversation between possible customer service agent and a person.Is agent trying to scam the person? \
+        Or Do you see any social engineering attempt? If yes then provide short reasoning.If not then don't be verbose. Provide output in json in given format."""
+
+    response = pipe.run({"prompt_builder": {"query": query},
+                        "retriever": {"filters":{'pipeline_run_id':pipeline_run_id, 'processor_type':'asr','artifact_type':'RAW'}}
+                        })
+            
+    print(response["llm"]["replies"])
+
+    run.prompt = ""
+    run.raw_response = response["llm"]["replies"][0]
+    # parse raw_response to dict
+    run.parsed_response =  json.loads(response["llm"]["replies"][0])
+    run.req_completed_ts = datetime.now()
+    run.ttr_model_ms = run.req_completed_ts - run.req_initiated_ts
+    run.ttr_rt_ms = run.req_completed_ts - run.req_initiated_ts
+    
+    return run
+
+@shared_task
+@store_artifact(processor_type='phish_scan_url_screenshot_ocr', artifact_type='RAW')
+def phish_scan_url_to_screenshot(url, kwargs,context):
+    # create datamodel for screenshot
+    from capabilities.phish.scanner import take_screenshot, tessaract_image_summarize_tostr
+    from capabilities.phish.datamodels import UrlScreenshot
+    from django.conf import settings
+    import os, base64
+    screenshot_output_dir = os.path.join(settings.BASE_DIR,'url_screenshots')
+    seccomp_path = os.path.join(settings.BASE_DIR,'seccomp_profile.json')
+    
+    screenshot_result = take_screenshot(url, screenshot_output_dir, seccomp_path)
+    screenshot_file = screenshot_result.get('screenshot_path')
+    screenshot_error = screenshot_result.get('error')
+    ocr_text = tessaract_image_summarize_tostr(screenshot_file) if screenshot_file else None
+    if ocr_text:
+        ocr_text = ocr_text.get('text',"")
+
+    screenshot_bytes = "".encode()
+    if screenshot_file:
+        with open(screenshot_file, 'rb') as f:
+            screenshot_bytes = f.read()
+
+    return TaskResult(return_result=ocr_text, 
+                      store_result= UrlScreenshot(url=url, screenshot_b64=base64.encodebytes(screenshot_bytes), ocr_text=ocr_text, error=screenshot_error, metadata=context),
+                      processor_type='phish_scan_url_screenshot_ocr')
+
+@shared_task
+@store_artifact(processor_type='phish_scan_screenshot_assessment', artifact_type='SIG')
+def phish_scan_screenshot_assessment(ocr_text,url, kwargs,context):
+        # create datamodel for phishing assessment
+    from capabilities.phish.scanner import ollama_ask_llm, is_phishing_url
+    from capabilities.phish.datamodels import PhishingAssessment
+
+    if not ocr_text:
+        return PhishingAssessment(url=url, properties={}, is_phishing=False)   
+
+    llm_response = ollama_ask_llm(ocr_text)
+    llm_response = llm_response.text
+
+    try: 
+        parsed_resp = json.loads(llm_response.replace("\n","").replace("\\","").strip())
+        brand = parsed_resp.get('brand', "")
+        brand_url = parsed_resp.get('brand_url', "")
+        business_category = parsed_resp.get('business_category', "")
+        webpage_summary = parsed_resp.get('webpage_summary', "")
+    except json.JSONDecodeError as e:
+        brand_match = re.search(r'"brand"\s*:\s*"([^"]+)"', llm_response)
+        brand = brand_match.group(1) if brand_match else ""
+
+        brand_url_match = re.search(r'"brand_url"\s*:\s*"([^"]+)"', llm_response)
+        brand_url = brand_url_match.group(1) if brand_url_match else ""
+
+        business_category_match = re.search(r'"business_category"\s*:\s*"([^"]+)"', llm_response)
+        business_category = business_category_match.group(1) if business_category_match else ""
+
+        webpage_summary_match = re.search(r'"webpage_summary"\s*:\s*"([^"]+)"', llm_response)
+        webpage_summary = webpage_summary_match.group(1) if webpage_summary_match else ""
+
+    return PhishingAssessment(
+                                url=url, 
+                                raw_assessment={'ocr_text':ocr_text, 'llm_response':llm_response},
+                                is_phishing=is_phishing_url(url, brand_url, brand),
+                                brand=brand,
+                                brand_url=brand_url,
+                                business_category=business_category,
+                                webpage_summary=webpage_summary,
+                              )
+    
 if __name__ == '__main__':
     pass #app.start()

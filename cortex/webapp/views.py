@@ -18,6 +18,8 @@ from webapp.tasks import process_audio_llm_task
 import wave, io, json, sys
 import logging, hashlib
 from capabilities.helpers.utils import check_task_and_children
+from capabilities.services import EntityService, ArtifactService
+import randomname
 
 from celery.result import AsyncResult
 
@@ -48,7 +50,7 @@ def artifacts(request):
 
 def artifact_list(request, pipeline_run_id, task_id):
     # Retrieve the PipelineRun instance
-    pipeline_run = PipelineRun.objects.get(id=pipeline_run_id)
+    pipeline_run = EntityService.get_pipelinerun(pipeline_run_id)
 
     # Get the status of the Celery task
     #task = AsyncResult(task_id)
@@ -59,10 +61,7 @@ def artifact_list(request, pipeline_run_id, task_id):
     logger.debug(f"last_artifact_id: {last_artifact_id}")
 
     # Filter artifacts that are new since the last fetched artifact
-    artifacts = Artifact.objects.filter(
-            pipeline_run_id=pipeline_run_id, 
-            id__gt=last_artifact_id
-        ).order_by('metadata__context__chunk_num')
+    artifacts = ArtifactService.increamental_fetch(pipeline_run_id, last_artifact_id)
 
     # Update the session with the ID of the last artifact in this response, if any
     if artifacts.count() > 0:
@@ -92,8 +91,7 @@ class AudioProcessingView(View):
         pipeline_run_id = request.POST.get('pipeline_run_id')
         parent_entity_id = request.POST.get('parent_entity_id')
         if form.is_valid():
-
-            backend = 'celery'
+            #backend = 'celery'
             audio_file = form.cleaned_data['audio_file']
 
             # Read the file into a bytes object
@@ -108,7 +106,7 @@ class AudioProcessingView(View):
                 size = wav_file.getnframes()
                 duration = size / float(sample_rate)
 
-            parent_entity = None
+            """parent_entity = None
             if parent_entity_id:
                 parent_entity = Entity.objects.get(id=parent_entity_id)
                 
@@ -129,13 +127,20 @@ class AudioProcessingView(View):
                         'duration': duration
                     }
                 )
-                entity.save()
+                entity.save()"""
+            
+            entity = EntityService.get_or_create_entity(parent_entity_id, 'audio_wav', data, {
+                'sample_rate': sample_rate,
+                'channels': channels,
+                'size': size,
+                'duration': duration
+            })
 
             try:
                 if pipeline_run_id is None:
-                    pipeline = PipelineRun.objects.create(type="asr_llm_celery",status='created')
+                    pipeline = EntityService.create_pipelinerun('asr_llm_celery', randomname.get_name(), 'created')
                 else:
-                    pipeline = PipelineRun.objects.get(id=pipeline_run_id)
+                    pipeline = EntityService.get_pipelinerun(pipeline_run_id)
 
                 task = process_audio_llm_task.delay(pipeline.id, entity.id)
                 request.session['task'] = task.id
@@ -145,8 +150,37 @@ class AudioProcessingView(View):
                 return JsonResponse({'error': str(e)}, status=500)
 
             return JsonResponse({'pipeline_run_id': pipeline.id, 
-                                 'parent_entity_id': parent_entity.id if parent_entity else entity.id,
+                                 'parent_entity_id': entity.parent if entity.parent else entity.id,
                                  'entity_id': entity.id, 
                                  'task_id': task.id})
         else:
             return JsonResponse({'error': 'Invalid form'}, status=400)
+        
+
+def url_scan(request):
+    return render(request, 'url_scan.html')
+
+@method_decorator(csrf_exempt, name='dispatch')
+def initiate_url_scan(request):
+    # fetch url from post request
+    url = request.POST.get('url')
+   
+    entity = EntityService.get_or_create_entity(None, 'text_url', url.encode(), {})
+    #search pipeline with given entity id
+    pipeline = EntityService.search_pipelinerun(entity.id, 'url_phish_scan',1)
+    if pipeline is not None:
+        return JsonResponse({'pipeline_run_id': pipeline.id, 'entity_id': entity.id, 'task_id': None})
+    else:
+        pipeline = EntityService.create_pipelinerun('url_phish_scan', randomname.get_name(), 'created', 
+                                                metadata={'entity_ids': [entity.id]})
+        
+        from capabilities.processing.tasks import phish_scan_url_to_screenshot, phish_scan_screenshot_assessment
+        from celery import chain
+        context = {'pipeline_run_id': pipeline.id}
+        celery_chain = chain(phish_scan_url_to_screenshot.s(url,context=context), phish_scan_screenshot_assessment.s(url,context=context))
+        task = celery_chain.delay()
+        #request.session['task'] = task.id
+        return JsonResponse({'pipeline_run_id': pipeline.id, 'entity_id': entity.id, 'task_id': task.parent.id})
+
+def scan_results(request):
+    return render(request, 'scan_results2.html')

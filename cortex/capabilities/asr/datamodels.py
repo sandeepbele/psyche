@@ -1,6 +1,6 @@
 
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 from uuid import uuid4, UUID
 
 
@@ -20,11 +20,11 @@ class SpeakerSegment(BaseModel):
 
 class TSegment(BaseModel):
     """Transcription segments: represents a segment of speech as decoded by the ASR model"""
-    start: float = None
-    end: float = None
+    start: Optional[float] = None
+    end: Optional[float] = None
     speaker_segments: List[SpeakerSegment] = []
-    ttd_model_ms : float = None # time taken by the model to decode the segment
-    ttd_rt_ms : float = None # time taken by the model + API call to decode the segment
+    ttd_model_ms : Optional[float] = None # time taken by the model to decode the segment
+    ttd_rt_ms : Optional[float] = None # time taken by the model + API call to decode the segment
 
     def duration(self):
         return self.speaker_segments[-1].end - self.speaker_segments[0].start
@@ -69,3 +69,4 @@ class Transcription(BaseModel):
 
     def ttd_rt_calc_ms(self):
         return sum([segment.ttd_rt_ms for segment in self.segments])
+    

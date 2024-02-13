@@ -101,6 +101,7 @@ class Ollma:
                 result[key] = value
         return result
 
+    
 
     def ask_llm(self, prompt, **kwargs):
         # rewrite for Ollma method
@@ -128,9 +129,6 @@ class Ollma:
         
         return res_dict
     
-   
-    
-
 
 
     def ask_llm2(prompt,**kwargs):
@@ -219,6 +217,30 @@ class OllamaThread():
 
         return result
     
+    def _parse_to_dict2(input_string):
+
+        # Find the start and end of the "Final answer" section
+        start = input_string.find("Final answer:")
+        #end = response.find("###", start)
+
+        # Extract the "Final answer" section
+        final_answer = input_string[start:].strip()
+
+        # Split the "Final answer" section into lines
+        lines = final_answer.split("\\n")
+
+        # Remove the "Final answer:" line
+        lines = lines[1:]
+
+        # Parse each line into a key-value pair
+        parsed_answer = {}
+        for line in lines:
+            if line:
+                key, value = line.split(" >>> ")
+                parsed_answer[key] = value
+
+        return parsed_answer
+    
     def run(self, prompt:str, kwargs:dict=None) -> OllamaRun:
         run = OllamaRun(id=len(self.runs), prompt=prompt)
         run.req_initiated_ts = datetime.now()
@@ -267,4 +289,4 @@ class OllamaThread():
             rich.print(f"\nOllma run completed in {run.ttr_model_ms.total_seconds()} sec")
             rich.print("-----------------------------------")
             return run
-        
+

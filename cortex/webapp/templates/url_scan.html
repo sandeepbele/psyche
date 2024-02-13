@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>URL Scanner</title>
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+<style>
+    body, html {
+      height: 100%;
+      margin: 0;
+    }
+    .flex-wrapper {
+      display: flex;
+      flex-direction: column;
+      min-height: 100%;
+    }
+    header, .footer {
+      flex-shrink: 0; /* Prevent header and footer from shrinking */
+    }
+    .content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center; /* Aligns content vertically */
+    }
+    .search-bar-container {
+      text-align: center;
+      max-width: 600px; /* Controls the width of the search bar */
+      margin: 0 auto; /* Centers in the available space */
+    }
+    .hero-text {
+      margin-top: -8rem; /* Pulls hero text up */
+      text-align: center;
+    }
+    .input-group {
+      margin-top: 2rem; /* Spacing above the search bar */
+      margin-bottom: 2rem; /* Spacing below the search bar */
+    }
+    .input-group input {
+        margin-right: 0.5rem; /* Spacing between search bar and search button */
+    }
+    .footer {
+      text-align: center;
+      padding: 1rem;
+      background: #f8f9fa;
+    }
+  </style>
+</head>
+<body>
+
+    <div class="flex-wrapper">
+
+    <header class="container mt-3">
+
+  <nav class="navbar navbar-light bg-light">
+    <a class="navbar-brand" href="#">
+      <img src="/path-to-your-logo.png" alt="logo" style="width: 120px;"> <!-- Replace with your logo path -->
+    </a>
+  </nav>
+</header>
+
+<div class="container content">
+
+    <div class="hero-text text-center">
+  <h1>PhishIQ Detects and Monitors Phishing and Scam Sites</h1>
+  <p>With Anomalytica PhishIQ, you can scan suspicious URLs and monitor for typosquats and lookalikes variants of a domain.</p>
+</div>
+<div class="search-bar-container">
+  <form action={% url 'initiate_url_scan' %} method="post"> <!-- Replace /scan-url with your backend endpoint -->
+    {% csrf_token %} 
+    <div class="input-group mb-3">
+      <input type="text" name="url" class="form-control" placeholder="Scan a URL" aria-label="URL">
+      <div class="input-group-append">
+        <button class="btn btn-outline-secondary" type="submit">Scan</button>
+      </div>
+    </div>
+  </form>
+</div>
+</div>
+
+<footer class="footer">
+  <p>&copy; 2024 Anomalytica Inc. All rights reserved.</p>
+</footer>
+</div>  
+
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+<script>
+  // Vanilla JS or jQuery for any dynamic behaviors (if necessary)
+</script>
+</body>
+</html>

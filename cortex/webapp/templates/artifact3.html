@@ -95,15 +95,22 @@ document.getElementById('uploadForm').addEventListener('submit', function(event)
         const numberOfChunks = Math.ceil(audioBuffer.duration / chunkDuration);
         updateProgressBar(0);
 
+        let pipelineRunId = null;
+        let parentEntityId = null;
+        let taskId = null;
+
         for (let i = 0; i < numberOfChunks; i++) {
             const startTime = i * chunkDuration;
             const endTime = Math.min((i + 1) * chunkDuration, audioBuffer.duration);
 
             const chunkBuffer = extractChunk(audioContext, audioBuffer, startTime, endTime);
-            const chunkBlob = convertToBlob(chunkBuffer);
-
+            const chunkBlob = convertToBlob(chunkBuffer);  
+           
             try {
-                const { pipelineRunId, taskId } = await sendChunkToServer(chunkBlob, i);
+                const result = await sendChunkToServer(chunkBlob, i, pipelineRunId,parentEntityId);
+                pipelineRunId = result.pipeline_run_id;
+                parentEntityId = result.parent_entity_id;
+                taskId = result.task_id;
                 // Create a URL for the blob and set it as the source of the audio player
                 const audioUrl = URL.createObjectURL(chunkBlob);
                 const chunkPlayer = document.getElementById('chunkPlayer');
@@ -229,9 +236,17 @@ function convertToBlob(buffer) {
 }
 
 // Modified sendChunkToServer function
-async function sendChunkToServer(blob, chunkIndex) {
+async function sendChunkToServer(blob, chunkIndex,pipelineRunId,parentEntityId) {
     const formData = new FormData();
     formData.append('audio_file', blob, `chunk_${chunkIndex}.wav`);
+
+    if (pipelineRunId !== null && pipelineRunId !== undefined) {
+        formData.append('pipeline_run_id', pipelineRunId);
+    }
+
+    if (parentEntityId !== null && parentEntityId !== undefined) {
+        formData.append('parent_entity_id', parentEntityId);
+    }
 
     try {
         const response = await fetch('/process_audio/', {
@@ -239,10 +254,12 @@ async function sendChunkToServer(blob, chunkIndex) {
             body: formData
         });
         const result = await response.json();
+    
         console.log(`Chunk ${chunkIndex} processed:`, result);
 
         if (result.pipeline_run_id && result.task_id) {
-            return { pipelineRunId: result.pipeline_run_id, taskId: result.task_id };
+            //return { pipelineRunId: result.pipeline_run_id, taskId: result.task_id };
+            return result;
         } else {
             throw new Error('Pipeline run ID or task ID not found in response');
         }
@@ -317,10 +334,16 @@ async function playChunkAndPoll(chunkIndex, pipelineRunId, taskId, timeout) {
 
 
 function processLlmData(llmData) {
-    // Risk Meter based on social_engineering and scam values
-    const riskLevel = (llmData.social_engineering !== 'False' && llmData.social_engineering !== 'Unknown') || (llmData.scam !== 'False' && llmData.scam !== 'Unknown') ? 'High' : 'Low';
-    const riskClass = riskLevel === 'High' ? 'btn-danger' : 'btn-success';
+    let riskLevel = 'Low';
+    let riskClass = 'btn-success';
 
+    if (llmData.social_engineering.toLowerCase().includes('unknown') || llmData.social_engineering.toLowerCase().includes('insufficient info') || llmData.scam.toLowerCase().includes('unknown') || llmData.scam.toLowerCase().includes('insufficient info')) {
+        riskLevel = 'Medium';
+        riskClass = 'btn-warning';
+    } else if (llmData.social_engineering === 'True' || llmData.scam === 'True' || llmData.scam.toLowerCase().includes('possible') || llmData.scam.toLowerCase().includes('scam')) {
+        riskLevel = 'High';
+        riskClass = 'btn-danger';
+    }
     const agentEmotions = llmData.agent_emotions 
     ? JSON.parse(llmData.agent_emotions).join(', ') 
     : 'NA';

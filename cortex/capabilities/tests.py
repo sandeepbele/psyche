@@ -123,7 +123,7 @@ class TestLogArtifact(TestCase):
         )
 """
 
-
+"""
 from django.test import TestCase
 import json
 from capabilities.datamodels import AudioEntity, Entity
@@ -190,3 +190,69 @@ class TestEntityModel(TestCase):
         self.assertEqual(saved_entity.hash, self.entity.hash)
         self.assertEqual(saved_entity.data, self.entity.data)
         self.assertEqual(saved_entity.metadata, self.entity.metadata)
+
+"""
+import re
+class ParseToDict2Test(TestCase):
+
+    def parse_to_dict2(self,input_string):
+
+        # Find the start and end of the "Final answer" section
+        start = input_string.find("Final answer:")
+        #end = response.find("###", start)
+
+        # Extract the "Final answer" section
+        final_answer = input_string[start:].strip()
+        print("####Final Answer:",final_answer)
+
+        # Split the "Final answer" section into lines
+        lines = final_answer.split("\\n")
+
+        # Remove the "Final answer:" line
+        lines = lines[1:]
+
+        # Parse each line into a key-value pair
+        parsed_answer = {}
+        for line in lines:
+            if line:
+                key, value = line.split(" >>> ")
+                parsed_answer[key] = value
+
+        return parsed_answer
+    
+    def parse_to_dict(self,input_string):
+        """ format:
+        social_engineering >>> boolean
+        reasoning >>> str
+        conversation_sentiments >>> str
+        agent_emotions >>> str
+        customer_emotions >>> str
+        summary_transcript >>> str
+        """
+        lines = re.split(r"\n+", input_string.strip()) 
+        result = {}
+        for line in lines:
+            if line == "": 
+                continue
+            key, value = re.split(r">+", line, maxsplit=1) 
+            key = key.strip()
+            result[key] = value.strip()
+
+        return result
+    
+    def test_parse_to_dict2(self):
+        data = """
+\"Output:\\n\\nsocial_engineering >>> False\\nThe agent did not use any social engineering techniques, such as impersonating an authority figure, creating urgency, or exploiting the customer's emotions.\\nscam >>> False\\nThe agent did not ask for any personal information, credit card details, or money from the customer. The call was about a possible overpayment and not a fraud scheme.\\nreasoning >>> \\\"The agent was polite and professional and did not try to manipulate or deceive the customer.\\\"\\nconversation_sentiments >>> \\\"The agent expressed empathy and concern for the customer's situation, while the customer was calm and cooperative.\\\"\\nagent_emotions >>> \\\"The agent was respectful and helpful, showing genuine interest in resolving the issue.\\\"\\ncustomer_emotions >>> \\\"The customer was not angry or anxious, but rather curious about the call and wanted to clear up any confusion.\\\"\\nsummary_transcript >>> \\\"The caller thanked the IRS for calling him back and explained that he received a call from the same number 20 minutes ago. The agent confirmed that it was indeed the IRS and asked for his name. The caller said his name was Craig. The agent then asked if he understood why he might have overpaid his taxes and suggested checking his bank statement. The caller agreed and thanked the agent for his help.\\\"\"
+"""
+        expected_output = {
+            'social_engineering': 'False',
+            'scam': 'False',
+            'reasoning': '\"The agent was polite and professional and did not try to manipulate or deceive the customer.\"',
+            'conversation_sentiments': '\"The agent expressed empathy and concern for the customer\'s situation, while the customer was calm and cooperative.\"',
+            'agent_emotions': '\"The agent was respectful and helpful, showing genuine interest in resolving the issue.\"',
+            'customer_emotions': '\"The customer was not angry or anxious, but rather curious about the call and wanted to clear up any confusion.\"',
+            'summary_transcript': '\"The caller thanked the IRS for calling him back and explained that he received a call from the same number 20 minutes ago. The agent confirmed that it was indeed the IRS and asked for his name. The caller said his name was Craig. The agent then asked if he understood why he might have overpaid his taxes and suggested checking his bank statement. The caller agreed and thanked the agent for his help.\"'
+        }
+        expected_dict = self.parse_to_dict(data)
+        print("####",expected_dict)
+        self.assertEqual(expected_dict, expected_output)

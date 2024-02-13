@@ -10,11 +10,13 @@ print("Loading processor...")
 processor = Pix2StructProcessor.from_pretrained("google/pix2struct-textcaps-base")
 print("Done!")
 
-image = Image.open("/Users/sandeep/Documents/SB_Sources/anm_dintel/phishnet/coinbase.png").convert("RGB")
+image_file = "/Users/sandeep/Documents/SB_Sources/anm_dintel/cortex/temp-assets/112f41f6-dd16-4493-9f65-537b6be6758d.png"
+#image = Image.open("/Users/sandeep/Documents/SB_Sources/anm_dintel/phishnet/coinbase.png").convert("RGB")
+image = Image.open(image_file).convert("RGB")
 print("Image size:", image.size)
 
-#texts = ["webpage is asking user", "webpage says its for","webpage asking user to give away"]
-texts = ["purpose of webpage is","webpage talks about product","webpage describes a service"]
+texts = ["webpage is asking user", "webpage says its for","webpage asking user to give away"]
+#texts = ["purpose of webpage is","webpage talks about product","webpage describes a service"]
 # image only
 for text in texts:
     print("Text:", text)

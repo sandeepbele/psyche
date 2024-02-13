@@ -7,9 +7,10 @@ import diart.operators as dops
 import tempfile
 from capabilities.models import Entity, PipelineRun
 from rx import operators as ops
-from capabilities.processing.tasks import process_llm, transcribe
+from capabilities.processing.tasks import llm_using_haystack, process_llm, transcribe
 import traceback
 from datetime import datetime
+from capabilities.services import EntityService
 
 logger = logging.getLogger(__name__)
 
@@ -19,24 +20,22 @@ logger = logging.getLogger(__name__)
 def process_audio_llm_task(pipeline_run_id, entity_id):
 
     def cleanup(temp_file, pipeline, status):
-        pipeline.status=status
-        pipeline.completed_at=datetime.now()
-        pipeline.save()
+        EntityService.update_pipelinerun(pipeline, status)
         if temp_file is not None:
             temp_file.close()
 
     logger.debug("executing process_audio_llm_task")
     temp_file = None
+
     try:
-        pipeline = PipelineRun.objects.get(id=pipeline_run_id)
-        pipeline.status="running"
-        pipeline.save()
+        EntityService.update_pipelinerun(pipeline_run_id, "running")
 
         asr_kwargs = {key: kwargs[key] for key in kwargs.keys() if not key.startswith('ollama')}
         context = {"pipeline_run_id": pipeline_run_id}
 
         # Get the Entity instance with the specific id
-        entity = Entity.objects.get(id=entity_id)
+        #entity = Entity.objects.get(id=entity_id)
+        entity = EntityService.get_entity(entity_id)
 
         # Create a temporary file
         temp_file = tempfile.NamedTemporaryFile(delete=True)
@@ -44,7 +43,7 @@ def process_audio_llm_task(pipeline_run_id, entity_id):
         temp_file.write(entity.data)
         
     except:
-        pipeline.status="error"
+        EntityService.update_pipelinerun(pipeline_run_id, "error")
         traceback.print_exc()
         logger.error(f"Error in process_audio_llm_task: {traceback.format_exc()}")
         return
@@ -65,13 +64,14 @@ def process_audio_llm_task(pipeline_run_id, entity_id):
         kwargs["audio_source_sample_rate"]
         ),
         #ops.map(lambda sliding_window: asr_llm_pipeline(sliding_window.data)),
-        ops.map(lambda sliding_window: transcribe.s(sliding_window, kwargs=asr_kwargs, context={**context,'chunk_num':chunk_counter}) | process_llm.s(kwargs=kwargs, context={**context,'chunk_num':chunk_counter})),  
+        #ops.map(lambda sliding_window: transcribe.s(sliding_window, kwargs=asr_kwargs, context={**context,'chunk_num':chunk_counter}) | process_llm.s(kwargs=kwargs, context={**context,'chunk_num':chunk_counter})),
+        ops.map(lambda sliding_window: transcribe.s(sliding_window, kwargs=asr_kwargs, context={**context,'chunk_num':chunk_counter}) | llm_using_haystack.s(kwargs=kwargs, context={**context,'chunk_num':chunk_counter})),  
         ops.map(lambda celery_chain: celery_chain.delay()),
         #ops.map(lambda result: print(result)),
         ops.map(lambda result: update_chunk_counter()),
     ).subscribe(
         on_error=lambda _: traceback.print_exc(), #cleanup(temp_file,pipeline, "error"),  # print stacktrace if error  
-        on_completed=lambda: cleanup(temp_file,pipeline, "completed")
+        on_completed=lambda: cleanup(temp_file,pipeline_run_id, "completed")
     )
     logger.debug("Starting to read audio file")
     source.read()
