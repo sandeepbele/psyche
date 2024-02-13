@@ -542,4 +542,5 @@ class WhisperTranscriber2():
             rich.print("\n",str(tsegment))
             rich.print(f"\nASR completed in: {tsegment.ttd_rt_ms/1000} sec, model evaluation time: {tsegment.ttd_model_ms/1000} sec")
             rich.print("-------------------")
-            return tsegment    
+            
+            return tsegment
