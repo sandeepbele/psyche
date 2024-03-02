@@ -38,7 +38,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'capabilities.apps.CapabilitiesConfig',
-    'webapp'
+    'webapp',
+    'sentinel',
 ]
 
 MIDDLEWARE = [
@@ -120,6 +121,7 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [
     BASE_DIR / "static",
+    BASE_DIR / "sentinel/js"
 ]
 
 # Default primary key field type

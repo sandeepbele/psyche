@@ -10,14 +10,11 @@ from pydantic import BaseModel
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
-from llama_index.multi_modal_llms import OllamaMultiModal
 
 def take_screenshot(url, screenshot_output_dir, seccomp_path):
     screenshot_name = f"{uuid.uuid4()}.png"
-    #host_dir = "/path/to/your/host/directory"  # Ensure this directory exists and is writable
-    #seccomp_path = "/path/to/your/seccomp_profile.json"  # Adjust the path to your seccomp profile
+    source_name = f"{uuid.uuid4()}.html.txt"
 
-    # Update the Docker command with the new options
     docker_command = [
         "docker", "run", "-it", "--rm", 
         "--ipc=host", 
@@ -32,28 +29,61 @@ def take_screenshot(url, screenshot_output_dir, seccomp_path):
         export PATH=$PATH:/home/pwuser/.local/bin
         playwright install
         python -c '
+import sys
 from playwright.sync_api import sync_playwright
 with sync_playwright() as playwright:
     firefox = playwright.firefox
     browser = firefox.launch()
     page = browser.new_page()
-    page.goto("{url}")
-    page.screenshot(path="/screenshots/{screenshot_name}",full_page=True)
-    browser.close()     
+    response = page.goto("{url}")
+    try:
+        if response.status == 200:
+            page.screenshot(path="/screenshots/{screenshot_name}",full_page=True)
+            with open("/screenshots/{source_name}", "w") as f:
+                f.write(page.content())
+        else:
+            sys.stderr.write("Error: Status code is "+str(response.status))
+    except Exception as e:
+        sys.stderr.write("Error occurred: "+str(e))
+        raise e
+    finally:
+        browser.close()     
         '"""
     ]
-    print("Running Docker command:", " ".join(docker_command))
-    # Execute the Docker command
+    #print("Running Docker command:", " ".join(docker_command))
     result = subprocess.run(docker_command, capture_output=True, text=True)
     
-    # Check the result of the Docker command
     if result.returncode == 0:
         print("Screenshot taken successfully.")
-        return {"screenshot_path": os.path.join(screenshot_output_dir, screenshot_name), "error": None}
+        return {"screenshot_path": os.path.join(screenshot_output_dir, screenshot_name), "source_path": os.path.join(screenshot_output_dir, source_name), "error": None}
     else:
-        print("Failed to take screenshot.", result.stdout)
+        print("Failed to take screenshot.")
         print("Error:", result.stderr)
-        return {"screenshot_path": None, "error": f"{result.stderr}{result.stdout}"}
+        return {"screenshot_path": None, "source_path": None, "error": f"{result.stderr}{result.stdout}"}
+
+
+
+def openai_vision_summarize(screenshot_path):
+    from llama_index.multi_modal_llms.openai import OpenAIMultiModal
+    from llama_index.core.multi_modal_llms.generic_utils import load_image_urls
+
+
+    image_urls = [screenshot_path   ]
+    prompt = "Image is a screenshot of a webpage. Please analyze the image and extract the following information: Brand, Brand URL, Business Category, Webpage Summary, Call to Action, Contact Information, Language, Error. If there is any error in the image then provide the error message. Return the answer as a json object."
+
+
+    image_documents = load_image_urls(image_urls)
+
+    openai_mm_llm = OpenAIMultiModal(
+        model="gpt-4-vision-preview", api_key=OPENAI_API_KEY, max_new_tokens=300
+    )
+    
+    response = openai_mm_llm.complete(
+        prompt=prompt,
+        image_documents=image_documents,
+    )
+    return response
+
 
 def ollama_summarize_image(image_path):
 
@@ -152,26 +182,26 @@ def openai_image_summarize(image_path):
         error: Optional[str]
         
         # Added fields for scam, fraud, and phishing detection
-        dark_ui_patterns: Optional[List[str]]  # List of identified dark UI patterns, popups, alerts, etc.
-        deceiving_language: Optional[List[str]]  # List of phrases or patterns indicating deception, urgency, etc.
-        spelling_errors: Optional[List[str]]  # List of spelling errors
-        too_good_to_be_true_offers: Optional[List[str]]  # List of offers that seem unrealistic
-        scam_indicators: Optional[List[str]] # anomalies from typical brand practices
+        #dark_ui_patterns: Optional[List[str]]  # List of identified dark UI patterns, popups, alerts, etc.
+        #deceiving_language: Optional[List[str]]  # List of phrases or patterns indicating deception, urgency, etc.
+        #spelling_errors: Optional[List[str]]  # List of spelling errors
+        #too_good_to_be_true_offers: Optional[List[str]]  # List of offers that seem unrealistic
+        #scam_indicators: Optional[List[str]] # anomalies from typical brand practices
 
 
     # use llamaindex
     from llama_index.multi_modal_llms import OpenAIMultiModal
-    from llama_index import SimpleDirectoryReader
+    from llama_index.core.schema import ImageDocument
 
     # put your local directory here
-    image_documents = SimpleDirectoryReader("./restaurant_images").load_data()
+    image_document = ImageDocument(image_path=image_path, image_mimetype="image/png")
 
     openai_mm_llm = OpenAIMultiModal(
         model="gpt-4-vision-preview", api_key=OPENAI_API_KEY, max_new_tokens=1000
     )
 
     from llama_index.program import MultiModalLLMCompletionProgram
-    from llama_index.output_parsers import PydanticOutputParser
+    from llama_index.core.output_parsers import PydanticOutputParser
 
     prompt_template_str = """\
         can you summarize what is in the image\
@@ -179,11 +209,13 @@ def openai_image_summarize(image_path):
     """
     openai_program = MultiModalLLMCompletionProgram.from_defaults(
         output_parser=PydanticOutputParser(WebPageDesc),
-        image_documents=image_documents,
+        image_documents=[image_document],
         prompt_template_str=prompt_template_str,
         multi_modal_llm=openai_mm_llm,
         verbose=True,
     )
+    response = openai_program()
+    return response
 
 
 def tessaract_image_summarize_tostr(image_path):
