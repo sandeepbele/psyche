@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scan Results</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <style>
+    body, html {
+      height: 100%;
+      margin: 0;
+    }
+    .flex-wrapper {
+      display: flex;
+      flex-direction: column;
+      min-height: 100%;
+    }
+    header, .footer {
+      flex-shrink: 0;
+    }
+    .content {
+      flex: 1;
+    }
+    .result-section {
+      border-right: 1px solid #ddd;
+    }
+    .header {
+      border-bottom: 1px solid #ddd;
+      margin-bottom: 1rem;
+    }
+    .footer {
+      text-align: center;
+      padding: 1rem;
+      background: #f8f9fa;
+    }
+    /* Additional styling */
+  </style>
+</head>
+<body>
+
+<div class="flex-wrapper">
+
+  <header class="container mt-3">
+    <nav class="navbar navbar-light bg-light">
+      <a class="navbar-brand" href="#">
+        <img src="/path-to-your-logo.png" alt="logo" style="height: 50px;"> <!-- Replace with actual logo path -->
+      </a>
+    </nav>
+  </header>
+
+  <div class="content container my-4">
+    <div class="header d-flex justify-content-between align-items-center">
+      <h2>https://anomalytica.com/</h2>
+      <div>
+        <button class="btn btn-success">Clean</button>
+        <button class="btn btn-danger">Dispute</button>
+      </div>
+    </div>
+    
+    <div class="row">
+      <div class="col-md-6 result-section">
+        <h5>Scan Results</h5>
+        <table class="table">
+          <tbody>
+            <tr>
+              <th scope="row">Source URL:</th>
+              <td>https://anomalytica.com/</td>
+            </tr>
+            <tr>
+              <th scope="row">IP Address:</th>
+              <td>64.90.52.45</td>
+            </tr>
+            <!-- Add more rows as needed -->
+          </tbody>
+        </table>
+      </div>
+      <div class="col-md-6">
+        <!-- Right column content -->
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <p>&copy; 2024 Your Company. All rights reserved.</p>
+  </footer>
+
+</div>
+
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>

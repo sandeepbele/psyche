@@ -7,6 +7,7 @@ from pyannote.core import Segment
 import argparse
 import pickle
 from scipy.spatial.distance import cdist
+import torch.nn.functional as F
 
 @staticmethod
 def speaker_db():
@@ -23,23 +24,37 @@ def speaker_db():
 from pyannote.core import Segment
 from pyannote.audio import Inference
 import numpy as np
-from speechbrain.pretrained import EncoderClassifier
+from speechbrain.inference.classifiers import EncoderClassifier
+from pyannote.audio import Model
 
 embedding_model = None
 def fetch_pretrained_model():
     global embedding_model
     if embedding_model is None:
         print("loading model....")
-        embedding_model = PretrainedSpeakerEmbedding(
+        """embedding_model = PretrainedSpeakerEmbedding(
         "speechbrain/spkrec-ecapa-voxceleb",
-        use_auth_token="REDACTED_HUGGINGFACE_TOKEN")
+        use_auth_token="REDACTED_HUGGINGFACE_TOKEN")"""
+       
+        embedding_model = Model.from_pretrained("speechbrain/spkrec-ecapa-voxceleb", use_auth_token="REDACTED_HUGGINGFACE_TOKEN")
+
     return embedding_model
 
 # need to fix some errors in this function
 def get_embeddings_from_waveform_2(waveform, sample_rate=16000):
     classifier = EncoderClassifier.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb")
     embeddings = classifier.encode_batch(waveform)
-    return embeddings
+    #embeddings = classifier.encode_batch(signal)
+    #embeddings = F.normalize(embeddings, dim=2)
+    #embeddings = embeddings.squeeze().cpu().numpy()
+   # Reshape to 2D - combining batch and num_embeddings dimensions
+    # embeddings are tendor of shape [1,1,192]
+    embeddings_2d = embeddings.view(-1, embeddings.size(-1))
+
+    # Move to CPU and convert to NumPy
+    embeddings_np = embeddings_2d.cpu().numpy()
+    return embeddings_np
+    
 
 # working version
 def get_embeddings_from_waveform(waveform, sample_rate=16000):
@@ -48,8 +63,9 @@ def get_embeddings_from_waveform(waveform, sample_rate=16000):
     #                  use_auth_token="REDACTED_HUGGINGFACE_TOKEN")
      # Extract embedding for the current segment
     #waveform = waveform.squeeze()
-    model = fetch_pretrained_model()
-    embedding = model(waveform[None])
+    #model = fetch_pretrained_model()
+    #embedding = model(waveform[None])
+    embedding = get_embeddings_from_waveform_2(waveform,sample_rate)
     return embedding
 
 def extract_stacked_embeddings(audio_file, list_of_ts) -> np.ndarray:

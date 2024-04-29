@@ -25,7 +25,7 @@ SECRET_KEY = 'REDACTED_DJANGO_SECRET_KEY'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -37,6 +37,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # The following apps are required for allauth
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    # ... include the providers you want to enable:
+    'allauth.socialaccount.providers.google',
+    'allauth.socialaccount.providers.github',
+    # our apps
     'capabilities.apps.CapabilitiesConfig',
     'webapp',
     'sentinel',
@@ -50,7 +58,70 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+    # Add the account middleware:
+    "allauth.account.middleware.AccountMiddleware",
 ]
+
+AUTHENTICATION_BACKENDS = [
+
+    # Needed to login by username in Django admin, regardless of `allauth`
+    'django.contrib.auth.backends.ModelBackend',
+
+    # `allauth` specific authentication methods, such as login by email
+    'allauth.account.auth_backends.AuthenticationBackend',
+
+]
+
+# Provider specific settings
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        # For each OAuth based provider, either add a ``SocialApp``
+        # (``socialaccount`` app) containing the required client
+        # credentials, or list them here:
+        'APP': {
+            'client_id': '123',
+            'secret': '456',
+            'key': ''
+        }
+    }
+}
+ACCOUNT_AUTHENTICATION_METHOD = 'email'
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_USERNAME_REQUIRED = False
+#ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
+ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = False
+ACCOUNT_SESSION_REMEMBER = True
+ACCOUNT_LOGOUT_ON_GET = True
+ACCOUNT_LOGOUT_REDIRECT_URL = '/accounts/login/'
+#ACCOUNT_FORMS = {'signup': 'webapp.forms.CustomSignupForm'}
+
+# Add the following to the settings.py file to specify the URL where the user is redirected after logging in:
+LOGIN_REDIRECT_URL = '/app/'
+# Add the following to the settings.py file to specify the URL where the user is redirected after logging out:
+LOGOUT_REDIRECT_URL = '/accounts/login/'
+
+# Add the following to the settings.py file to specify the URL where the user is redirected after signing up:
+ACCOUNT_SIGNUP_REDIRECT_URL = '/app/'
+# Add the following to the settings.py file to specify the URL where the user is redirected after confirming an email address:
+ACCOUNT_EMAIL_CONFIRMATION_ANONYMOUS_REDIRECT_URL = '/accounts/login/'
+ACCOUNT_EMAIL_CONFIRMATION_AUTHENTICATED_REDIRECT_URL = '/'
+# Add the following to the settings.py file to specify the URL where the user is redirected after changing their password:
+ACCOUNT_PASSWORD_CHANGE_REDIRECT_URL = '/'
+# Add the following to the settings.py file to specify the URL where the user is redirected after resetting their password:
+ACCOUNT_PASSWORD_RESET_REDIRECT_URL = '/accounts/login/'
+
+# Add the following to the settings.py file to specify the URL where the user is redirected after confirming their password reset:
+ACCOUNT_PASSWORD_RESET_CONFIRM_REDIRECT_URL = '/accounts/login/'
+
+# Add the following to the settings.py file to specify the URL where the user is redirected after changing their email address:
+ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS = 3
+# Add the following to the settings.py file to specify the URL where the user is redirected after changing their email address:
+ACCOUNT_EMAIL_CONFIRMATION_AUTHENTICATED_REDIRECT_URL = '/'
+# Add the following to the settings.py file to specify the URL where the user is redirected after confirming their email address:
+ACCOUNT_EMAIL_CONFIRMATION_ANONYMOUS_REDIRECT_URL = '/accounts/login/'
+
 
 ROOT_URLCONF = 'cortex.urls'
 
@@ -121,7 +192,8 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [
     BASE_DIR / "static",
-    BASE_DIR / "sentinel/js"
+    BASE_DIR / "sentinel/static",
+   
 ]
 
 # Default primary key field type

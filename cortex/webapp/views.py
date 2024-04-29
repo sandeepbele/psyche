@@ -160,7 +160,8 @@ class AudioProcessingView(View):
 def url_scan(request):
     return render(request, 'url_scan.html')
 
-@method_decorator(csrf_exempt, name='dispatch')
+#@method_decorator(csrf_exempt, name='dispatch')
+@csrf_exempt
 def initiate_url_scan(request):
     # fetch url from post request
     url = request.POST.get('url')

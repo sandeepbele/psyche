@@ -334,6 +334,15 @@ async function playChunkAndPoll(chunkIndex, pipelineRunId, taskId, timeout) {
 
 
 function processLlmData(llmData) {
+
+    // Default values for social_engineering and scam if they are undefined
+    if (typeof llmData.social_engineering === 'undefined') {
+        llmData.social_engineering = 'NA';
+    }
+    if (typeof llmData.scam === 'undefined') {
+        llmData.scam = 'NA';
+    }
+
     let riskLevel = 'Low';
     let riskClass = 'btn-success';
 

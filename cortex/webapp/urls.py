@@ -5,7 +5,16 @@ from sentinel.views import index as sentinel_index, \
                       chat as sentinel_chat, \
                       assistant as sentinel_assistant, \
                       list_threads as sentinel_list_threads, \
-                      load_thread as sentinel_get_thread
+                      load_thread as sentinel_get_thread, \
+                      app as sentinel_app, \
+                      fetch_app_code as sentinel_fetch_app_code, \
+                      get_violations as sentinel_get_violations, \
+                      update_guardrails_selection as sentinel_update_guardrails_selection, \
+                      get_guardrails_selection as sentinel_get_guardrails_selection, \
+                      get_available_guardrails as sentinel_get_available_guardrails, \
+                      evaluate as sentinel_evaluate_request, \
+                      store as sentinel_store_response, \
+                      list_copilotcalls as sentinel_list_copilotcalls
 
 urlpatterns=[
   path('',index),
@@ -18,7 +27,17 @@ urlpatterns=[
   path('scan_results/',scan_results,name='scan_results'),
   path('sentinel/',sentinel_index),
   path('api/chat/',sentinel_chat,name='chat'),
-  path('assistant/',sentinel_assistant,name='assistant'),
   path('api/threads/',sentinel_list_threads,name='list_threads'),
   path('api/threads/<str:thread_uuid>/',sentinel_get_thread,name='get_thread'),
+  path('assistant/',sentinel_assistant,name='assistant'),
+  path('app/',sentinel_app,name='app'),
+  path('fetch/<str:app_name>/',sentinel_fetch_app_code,name='fetch_app_code'),
+  path('api/violations/',sentinel_get_violations,name='get_violations'),
+  path('api/guardrails/update/', sentinel_update_guardrails_selection, name='update_guardrails_selection'),
+  path('api/guardrails/get/', sentinel_get_guardrails_selection, name='get_user_guardrails'),
+  path('api/guardrails/list', sentinel_get_available_guardrails, name='get_available_guardrails'),
+  path('api/evaluate/<str:thread_id>/', sentinel_evaluate_request, name='evaluate_request'),
+  path('api/store/<str:thread_id>/',sentinel_store_response,name='sentinel_store_response'),
+  path('api/gitcopilot/threads/',sentinel_list_copilotcalls,name='list_copilotcalls')
+
 ]

@@ -7,6 +7,8 @@ import uuid
 import os
 
 from pydantic import BaseModel
+from llama_index.llms.ollama import Ollama
+import json
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
@@ -350,8 +352,7 @@ def ollama_ask_llm(text):
             ## OCR output of webpage: {text}
     """
 
-    from llama_index.llms import Ollama
-    import json
+   
 
     llm = Ollama(model="mistral", request_timeout=300.0)
     resp = llm.complete(prompt)
