@@ -22,5 +22,5 @@ EXPOSE 8000
 
 # Run the command to start the app
 #CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
-#CMD ["gunicorn", "-b", "0.0.0.0:8000", "enigma.wsgi:application"]
+#CMD ["gunicorn", "-b", "0.0.0.0:8000", "browser_fp.wsgi:application"]
 ENTRYPOINT ["/app/entrypoint.sh"]

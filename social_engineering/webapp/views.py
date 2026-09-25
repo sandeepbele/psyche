@@ -155,33 +155,3 @@ class AudioProcessingView(View):
                                  'task_id': task.id})
         else:
             return JsonResponse({'error': 'Invalid form'}, status=400)
-        
-
-def url_scan(request):
-    return render(request, 'url_scan.html')
-
-#@method_decorator(csrf_exempt, name='dispatch')
-@csrf_exempt
-def initiate_url_scan(request):
-    # fetch url from post request
-    url = request.POST.get('url')
-   
-    entity = EntityService.get_or_create_entity(None, 'text_url', url.encode(), {})
-    #search pipeline with given entity id
-    pipeline = EntityService.search_pipelinerun(entity.id, 'url_phish_scan',1)
-    if pipeline is not None:
-        return JsonResponse({'pipeline_run_id': pipeline.id, 'entity_id': entity.id, 'task_id': None})
-    else:
-        pipeline = EntityService.create_pipelinerun('url_phish_scan', randomname.get_name(), 'created', 
-                                                metadata={'entity_ids': [entity.id]})
-        
-        from capabilities.processing.tasks import phish_scan_url_to_screenshot, phish_scan_screenshot_assessment
-        from celery import chain
-        context = {'pipeline_run_id': pipeline.id}
-        celery_chain = chain(phish_scan_url_to_screenshot.s(url,context=context), phish_scan_screenshot_assessment.s(url,context=context))
-        task = celery_chain.delay()
-        #request.session['task'] = task.id
-        return JsonResponse({'pipeline_run_id': pipeline.id, 'entity_id': entity.id, 'task_id': task.parent.id})
-
-def scan_results(request):
-    return render(request, 'scan_results2.html')

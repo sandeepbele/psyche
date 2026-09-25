@@ -1,3 +1,4 @@
+import os
 import torch
 from pyannote.audio.pipelines.speaker_verification import PretrainedSpeakerEmbedding
 import numpy as np
@@ -34,9 +35,9 @@ def fetch_pretrained_model():
         print("loading model....")
         """embedding_model = PretrainedSpeakerEmbedding(
         "speechbrain/spkrec-ecapa-voxceleb",
-        use_auth_token="REDACTED_HUGGINGFACE_TOKEN")"""
+        use_auth_token=os.environ.get("HUGGINGFACE_TOKEN"))"""
        
-        embedding_model = Model.from_pretrained("speechbrain/spkrec-ecapa-voxceleb", use_auth_token="REDACTED_HUGGINGFACE_TOKEN")
+        embedding_model = Model.from_pretrained("speechbrain/spkrec-ecapa-voxceleb", use_auth_token=os.environ.get("HUGGINGFACE_TOKEN"))
 
     return embedding_model
 
@@ -60,7 +61,7 @@ def get_embeddings_from_waveform_2(waveform, sample_rate=16000):
 def get_embeddings_from_waveform(waveform, sample_rate=16000):
     #model = PretrainedSpeakerEmbedding(
     #"speechbrain/spkrec-ecapa-voxceleb",
-    #                  use_auth_token="REDACTED_HUGGINGFACE_TOKEN")
+    #                  use_auth_token=os.environ.get("HUGGINGFACE_TOKEN"))
      # Extract embedding for the current segment
     #waveform = waveform.squeeze()
     #model = fetch_pretrained_model()
@@ -79,7 +80,7 @@ def extract_stacked_embeddings(audio_file, list_of_ts) -> np.ndarray:
 
     model = PretrainedSpeakerEmbedding(
     "speechbrain/spkrec-ecapa-voxceleb",
-                      use_auth_token="REDACTED_HUGGINGFACE_TOKEN")
+                      use_auth_token=os.environ.get("HUGGINGFACE_TOKEN"))
     
     embeddings = []
 
@@ -105,7 +106,7 @@ def extract_combined_embedding(audio_file, list_of_ts)-> np.ndarray:
     
     model = PretrainedSpeakerEmbedding(
     "speechbrain/spkrec-ecapa-voxceleb",
-                      use_auth_token="REDACTED_HUGGINGFACE_TOKEN")
+                      use_auth_token=os.environ.get("HUGGINGFACE_TOKEN"))
     
     # Initialize an empty list to store waveforms of each segment
     waveform_segments = []

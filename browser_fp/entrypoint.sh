@@ -18,4 +18,4 @@ if [[ "$admin_exists" == "False" ]]; then
 fi
 
 # Start Gunicorn
-exec gunicorn -b 0.0.0.0:8000 enigma.wsgi:application
+exec gunicorn -b 0.0.0.0:8000 browser_fp.wsgi:application

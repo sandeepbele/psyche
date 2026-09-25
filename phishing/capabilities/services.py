@@ -1,6 +1,4 @@
 from pydantic import BaseModel, ValidationError
-from capabilities.asr.datamodels import TSegment
-from capabilities.llm.datamodels import OllamaRun
 from capabilities.models import Artifact, PipelineRun, Entity
 import logging
 from django.core.exceptions import ObjectDoesNotExist
@@ -10,6 +8,7 @@ from haystack.dataclasses.byte_stream import ByteStream
 
 from haystack import Document
 from capabilities.datamodels import EntityModel, PipelineRunModel
+from capabilities.phish.datamodels import UrlScreenshot, PhishingAssessment
 from datetime import datetime, timedelta
 import uuid
 from django.conf import settings
@@ -20,12 +19,12 @@ logger = logging.getLogger(__name__)
 backend = 'postgres'
 
 processor_type_to_model = {
-    'asr': TSegment,
-    'llm': OllamaRun,
+    'phish_scan_url_screenshot_ocr': UrlScreenshot,
+    'phish_scan_screenshot_assessment': PhishingAssessment
 }
 
 class ArtifactService:
-    
+
     from pydantic import ValidationError
 
     @staticmethod
@@ -40,7 +39,7 @@ class ArtifactService:
             except ValidationError as e:
                 print(f"Validation error for {processor_type}: {e}")
         return None
-    
+
     @staticmethod
     def store(pipeline_run_id, processor_type, artifact_type, data:BaseModel, metadata=None):
         if backend == 'postgres':
@@ -56,18 +55,18 @@ class ArtifactService:
             return ArtifactServicePG.increamental_fetch(pipeline_run_id, since_artifact_id, order_by, processor_type, artifact_type, limit)
         elif backend == 'elk':
             return ArtifactServiceELK.increamental_fetch(pipeline_run_id, since_artifact_id, order_by, processor_type, artifact_type, limit)
-        
+
 
 class ArtifactServicePG(object):
-    
+
     @staticmethod
     def store(pipeline_run_id, processor_type, artifact_type, data:BaseModel, metadata=None):
-        
+
         try:
             validated_json = ArtifactService._validate_data_model(processor_type=processor_type, data=data)
-        
+
             pipeline_run = PipelineRun.objects.get(id=pipeline_run_id)
-        
+
             Artifact.objects.create(
                 pipeline_run_id=pipeline_run,
                 processor_type=processor_type,
@@ -81,7 +80,7 @@ class ArtifactServicePG(object):
             logger.error(f"ArtifactService model validation error for {pipeline_run_id} {processor_type}: {e} {data}")
         except Exception as e:
             logger.error(f"ArtifactService model save error: {pipeline_run_id} {processor_type}: {e} {data}")
-        
+
     @staticmethod
     def increamental_fetch(pipeline_run_id, since_artifact_id, order_by='metadata__context__chunk_num', processor_type=None, artifact_type=None, limit=None):
         # Build a dictionary of filter criteria
@@ -103,31 +102,31 @@ class ArtifactServicePG(object):
             artifacts = artifacts[:limit]
 
         return artifacts
-    
+
 class ArtifactServiceELK:
     #document_store = ElasticsearchDocumentStore(hosts = "http://localhost:9200",
     #                                            index="artifact")
 
-    document_store = "" 
+    document_store = ""
 
     @staticmethod
     def store(pipeline_run_id, processor_type, artifact_type, data:BaseModel, metadata={}):
-        
+
         document_store = ArtifactServiceELK.document_store
 
         validated_json = ArtifactService._validate_data_model(processor_type=processor_type, data=data)
         document_store.write_documents(
-            [ Document(content=validated_json, 
-                        meta={'pipeline_run_id':pipeline_run_id, 
-                            'processor_type':processor_type, 
+            [ Document(content=validated_json,
+                        meta={'pipeline_run_id':pipeline_run_id,
+                            'processor_type':processor_type,
                             'artifact_type':artifact_type,
                             **metadata}
                 )
             ])
-    
+
     @staticmethod
     def increamental_fetch(pipeline_run_id, since_artifact_id, order_by=None, processor_type=None, artifact_type=None, limit=None):
-        
+
         document_store = ArtifactServiceELK.document_store
 
         filter_criteria = {
@@ -161,7 +160,7 @@ class ArtifactServiceELK:
             query['size'] = limit
 
         return document_store._search_documents(query)
-        
+
 
 class EntityService:
 
@@ -182,13 +181,13 @@ class EntityService:
             return EntityServicePG.create_pipelinerun(type, name, status,metadata)
         elif backend == 'elk':
             return EntityServiceELK.create_pipelinerun(type, name, status)
-    
+
     def get_pipelinerun(pipeline_run_id):
         if backend == 'postgres':
             return EntityServicePG.get_pipelinerun(pipeline_run_id)
         elif backend == 'elk':
             return EntityServiceELK.get_pipelinerun(pipeline_run_id)
-    
+
     def search_pipelinerun(entity_id,pipeline_type,recent_cutoff):
         if backend == 'postgres':
             return EntityServicePG.search_pipelinerun(entity_id,pipeline_type,recent_cutoff)
@@ -202,7 +201,7 @@ class EntityService:
         #    return EntityServiceELK.update_pipelinerun(pipeline_run_id, status)
 
 class EntityServicePG:
-   
+
     @staticmethod
     def get_entity(entity_id):
         entity = Entity.objects.get(id=entity_id)
@@ -222,7 +221,7 @@ class EntityServicePG:
         parent_entity = None
         if parent_entity_id:
             parent_entity = Entity.objects.get(id=parent_entity_id)
-            
+
         hash = hashlib.sha256(data).hexdigest() if data else None
         entity = None
         try:
@@ -247,7 +246,7 @@ class EntityServicePG:
             metadata=entity.metadata,
             parent=entity.parent.id if entity.parent else None
         )
-    
+
     @staticmethod
     def create_pipelinerun(type, name, status='created', metadata={}):
         pipelinerun = PipelineRun.objects.create(type=type, name=name, status=status, metadata=metadata)
@@ -262,7 +261,7 @@ class EntityServicePG:
             status=pipelinerun.status,
             metadata=pipelinerun.metadata
         )
-    
+
     @staticmethod
     def update_pipelinerun(pipeline_run_id, status):
         pipelinerun = PipelineRun.objects.get(id=pipeline_run_id)
@@ -271,7 +270,7 @@ class EntityServicePG:
             pipelinerun.completed_at = datetime.now()
         else:
             pipelinerun.updated_at = datetime.now()
-        
+
         pipelinerun.save()
 
         return PipelineRunModel(
@@ -286,7 +285,7 @@ class EntityServicePG:
             metadata=pipelinerun.metadata
         )
 
-    
+
     @staticmethod
     def get_pipelinerun(pipeline_run_id):
         pipelinerun = PipelineRun.objects.get(id=pipeline_run_id)
@@ -301,14 +300,14 @@ class EntityServicePG:
             status=pipelinerun.status,
             metadata=pipelinerun.metadata
         )
-    
+
     @staticmethod
     def search_pipelinerun(entity_id, pipeline_type, recent_cutoff):
         recent_cutoff_date = datetime.now() - timedelta(days=recent_cutoff)
         if 'sqlite' in settings.DATABASES['default']['ENGINE']:
-            pipelinerun = PipelineRun.objects.filter(metadata__entity_ids__icontains=entity_id, 
-                                                     type=pipeline_type, 
-                                                     created_at__gte=recent_cutoff_date, 
+            pipelinerun = PipelineRun.objects.filter(metadata__entity_ids__icontains=entity_id,
+                                                     type=pipeline_type,
+                                                     created_at__gte=recent_cutoff_date,
                                                      status='completed').all()
         else:
             pipelinerun = PipelineRun.objects.filter(metadata__entity_ids__contains=entity_id, type=pipeline_type, created_at__gte=recent_cutoff_date).all()
@@ -327,7 +326,7 @@ class EntityServicePG:
             )
         else:
             return None
-    
+
 
 class EntityServiceELK:
 
@@ -337,7 +336,7 @@ class EntityServiceELK:
 
     @staticmethod
     def get_entity(entity_id):
-        
+
         document_store = EntityServiceELK.document_store
 
         entities =  document_store.filter_documents({"_id":entity_id})
@@ -356,19 +355,19 @@ class EntityServiceELK:
 
     @staticmethod
     def get_or_create_entity(parent_entity_id, type, data, metadata):
-        
+
         document_store = EntityServiceELK.document_store
-        
+
         hash = hashlib.sha256(data).hexdigest() if data else None
         entity = None
         if hash:
             entity = document_store.filter_documents({"meta.hash":hash})
-        
+
         if not entity:
             # Create a new Entity instance with this data
             entities = document_store.write_documents(
-                    
-                    [ Document(blob=ByteStream(data=data,mime_type="audio/wav"), 
+
+                    [ Document(blob=ByteStream(data=data,mime_type="audio/wav"),
                             meta={ **metadata,
                                     "uuid":uuid.uuid4(),
                                     "type":type,
@@ -377,7 +376,7 @@ class EntityServiceELK:
                                     "parent_entity_id":parent_entity_id,
                                     })])
             entity = entities[0] if entities else None
-        
+
         return  EntityModel(
             id=entity.id,
             uuid=entity.meta.uuid,
@@ -387,26 +386,26 @@ class EntityServiceELK:
             data=entity.blob.data,
             metadata=entity.meta,
             parent=entity.meta.parent_entity_id if 'parent_entity_id' in entity.meta else None
-        )            
-    
+        )
+
     @staticmethod
     def create_pipelinerun(type, name, status='created'):
-        
+
         document_store = EntityServiceELK.document_store
 
         if status == 'created':
             created_at = datetime.now()
 
         written_docs = document_store.write_documents(
-            [ Document(content={"type":type, 
+            [ Document(content={"type":type,
                                 "uuid":uuid.uuid4(),
-                                "name":name, 
+                                "name":name,
                                 "status":status,
-                                "created_at":created_at})]) 
-        
+                                "created_at":created_at})])
+
         if not written_docs:
             return None
-        
+
         return PipelineRunModel(
             id=written_docs[0]._id,
             uuid=written_docs[0].uuid,
@@ -415,10 +414,10 @@ class EntityServiceELK:
             created_at=written_docs[0].created_at,
             status=written_docs[0].status
         )
-    
+
     @staticmethod
     def get_pipelinerun(pipeline_run_id):
-         
+
         document_store = EntityServiceELK.document_store
 
         runs =  document_store.filter_documents({"_id":pipeline_run_id})

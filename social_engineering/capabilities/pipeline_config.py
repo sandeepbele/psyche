@@ -1,3 +1,4 @@
+import os
 from capabilities.llm.ollama import InstructionPromptFactory
 from capabilities.prompts import get_prompt_template
 
@@ -26,4 +27,4 @@ config['ollama_prompt_format'] = prompt_format
 #kwargs['ollama_output_parser'] = parse_to_dict
 config['ollama_continue_on_error'] = True
 
-config['hf_token'] = 'REDACTED_HUGGINGFACE_TOKEN'
+config['hf_token'] = os.environ.get('HUGGINGFACE_TOKEN', '')
