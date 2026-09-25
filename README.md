@@ -1,55 +1,84 @@
 # Psyche
 
-> **Archived project.** Psyche is a collection of older experiments in fraud and deception detection. It is no longer maintained, and I have not recently verified the full applications or dependency stacks on a current environment.
+> **Archived project.** Psyche is a collection of prototypes exploring fraud and deception detection. It is no longer maintained, and I have not recently verified the applications or dependency stacks on a current environment.
 
-**Experiments in detecting fraud from browser, web, and conversation signals.**
+**Approaches to detecting fraud enabled or amplified by AI.**
 
-Psyche grew from a question: can an application recognize a suspicious interaction from the signals available while it is happening? A browser, a website, and a conversation each reveal different clues. These prototypes explore what those clues might tell us.
+Psyche grew from a broader question: as AI makes it easier to automate online activity, reproduce convincing websites, clone voices, and conduct persuasive conversations at scale, what signals could applications use to recognize suspicious interactions while they are happening?
+
+The repository explores three different parts of that problem: distinguishing automated browsers from human-operated ones, detecting websites that impersonate trusted organizations, and analyzing conversations for signs of scams or social engineering.
 
 ## Browser fingerprinting
 
-`browser_fp/` explores whether browser characteristics can help distinguish a human-operated browser from automation or an emulated environment. The concern was that, as AI agents and browser automation became more common, applications might need a way to assess *how* someone was interacting with them, not just whether a device had visited before.
+`browser_fp/` explores whether browser-level signals can help distinguish a genuine browser session from an automated or instrumented environment.
 
-The prototype collects browser attributes and signals associated with automation, including WebDriver, headless mode, and inconsistencies in the browser environment. It stores a fingerprint so it can recognize a returning browser and use its history when evaluating a request.
+The motivation was the expectation that more online activity would eventually be carried out by AI agents and browser automation. In some applications, it could become important to know whether a request came from a person using a normal browser or from software controlling or emulating one.
 
-`demo/` is a small login example. The sign-in page collects a browser fingerprint and sends its ID along with the login attempt. The fingerprint service can return `Accept`, `Review`, or `Blocked`. The demo admits an `Accept` result if the credentials also authenticate, then shows a welcome page with the user's email. Other results appear as a bot warning on the login form. It illustrates a possible use of the fingerprint decision; it is not a complete account-security flow.
+The service collects browser attributes and signals associated with automation, including WebDriver, headless-browser characteristics, and inconsistencies in the browser environment. It also generates a fingerprint that can be used to recognize a browser across requests.
+
+`demo/` shows one possible use of those signals in a login flow. A login attempt from a normal browser can proceed when the fingerprint service classifies the browser as genuine, while an attempt made through an instrumented browser such as Playwright can be blocked.
+
+The prototype was intended to explore whether browser characteristics could provide evidence that an interaction was being performed by automation rather than a human-operated browser. It is not a complete bot-detection or account-security system.
 
 ## Phishing detection
 
-`phishing/` explores a different problem. AI could make it cheap to produce convincing copies of real websites at scale. If a fake site looks almost identical to the original, clues such as poor spelling or a roughly copied layout become less useful. The question was whether a scanner could work out *which organization a page claims to represent*, then compare that claim with the address where the page is hosted.
+`phishing/` explores approaches to detecting websites that impersonate legitimate organizations.
 
-The web prototype takes a URL and queues a scan. It captures a screenshot, reads visible text with OCR, and asks an LLM to identify the apparent brand and its expected website. It then compares the registered domain of that expected website with the submitted URL. A mismatch is a phishing signal. The interface displays the scan result and the information used to reach it.
+One motivation was that generative AI could make it much cheaper to create convincing copies of existing websites. If visual quality, writing quality, and page structure become easy to reproduce, traditional clues such as spelling mistakes or poorly copied layouts become less useful.
 
-There are also experiments in finding a site's logo automatically. They look for likely logo regions near the top of a screenshot using position, shape, and image-processing clues, then try OCR. Separate scripts explore Google Vision logo and web detection and GPT-4 Vision. These experiments show where visual brand recognition might have taken the scanner; they are not all part of the queued web scan. The screenshot tool saves page HTML, but the current scan does not use page metadata in its verdict.
+The approach here is to determine **what organization a page appears to represent**, then compare that identity with the domain actually hosting the page.
+
+The main workflow:
+
+1. accepts a URL
+2. captures a screenshot of the page
+3. extracts visible text using OCR
+4. asks an LLM to identify the apparent organization or brand
+5. determines the expected website for that organization
+6. compares the expected domain with the domain of the submitted URL
+
+A mismatch between the apparent brand and the actual domain becomes a phishing signal.
+
+For example, a page might visually present itself as a bank while being hosted on a domain unrelated to that bank.
+
+The repository also contains several approaches to extracting brand identity visually. These include locating likely logo regions using image position and shape, applying OCR, and trying external vision models for logo and web-entity detection.
+
+Not all of these approaches are connected to the primary scanning workflow. They represent different ways I was exploring the problem of determining what identity a webpage was attempting to present.
 
 ## Social engineering detection
 
-`social_engineering/` was motivated by another possible effect of AI: convincing voice cloning could make a scam call harder for a person to recognize. A caller might gradually pressure a support worker into bypassing a policy, such as resetting an account and disclosing access details. I wanted to explore whether the *conversation itself* could reveal that kind of manipulation as it developed.
+`social_engineering/` explores whether the content and progression of a conversation can reveal signs of a scam or social-engineering attempt.
 
-The prototype accepts recorded audio, processes it in short chunks, transcribes speech, attempts to label speakers, and asks an LLM whether the conversation suggests a scam or social engineering. Its interface shows the transcript, speaker labels, a risk indication, and the model's reasoning.
+The motivation was that AI-generated speech and voice cloning could make it increasingly difficult to rely on a caller's voice or apparent identity alone. A convincing caller could instead be detected through what they are asking for, how the conversation develops, and whether they are attempting to manipulate someone into taking an unsafe action.
 
-This is an early exploration of conversation analysis using the speech and language models available at the time. The implemented prompts ask about scams and social engineering in general; they do not check a specific support-center policy or detect a cloned voice. Audio is uploaded or recorded and processed in chunks, rather than connected to a live phone system or classified after every conversational turn.
+The prototype processes recorded audio in short chunks, transcribes the speech, attempts to associate speech with individual speakers, and asks an LLM to assess whether the conversation contains signs of scams or social engineering.
+
+The interface presents:
+
+- the evolving transcript
+- speaker labels
+- a risk assessment
+- the reasoning behind that assessment
+
+The emphasis was on analyzing the **conversation itself** rather than attempting to determine whether a voice was synthetically generated.
+
+The implementation uses uploaded or recorded audio and file-based chunk processing. It is not connected to a live telephone system, and it does not perform cloned-voice detection.
 
 ## Repository structure
 
 ```text
-browser_fp/          Browser fingerprinting service
-demo/                Login example using a fingerprint decision
+browser_fp/          Browser fingerprinting and automation detection
+demo/                Login flow using the fingerprint decision
 phishing/            Website capture and phishing analysis
 social_engineering/  Audio and conversation analysis
 creepjs/             Modified CreepJS used by the fingerprinting prototype
 ```
 
-These are separate prototypes, not components of a single finished fraud-detection service.
-
-## History
-
-This repository was extracted from the original FraudIQ work. The retained files keep their original Git authors and commit dates. The extraction changed commit IDs because unrelated code and committed credentials were removed from the new history. The directory names and this README were added afterward.
+These are separate prototypes rather than components of a single finished fraud-detection service.
 
 ## Third-party code
 
-`creepjs/` contains a modified copy of [CreepJS](https://github.com/abrahamjuliot/creepjs). Its MIT license is retained in `creepjs/LICENSE`. The repository's root license applies to the original Psyche code.
+`creepjs/` contains a modified copy of [CreepJS](https://github.com/abrahamjuliot/creepjs), used by the browser-fingerprinting prototype.
 
-## Note
+Its original MIT license is retained in [`creepjs/LICENSE`](creepjs/LICENSE). The repository's root license applies to the original Psyche code.
 
-This project is archived. Its applications and dependencies have not been revalidated on a current environment. The login demo also still points to an older fingerprint-service URL and would need that path updated before it could be run with the renamed `browser_fp/` service.
